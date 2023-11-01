@@ -29,4 +29,6 @@ class ForzaHorizon5:
         return max_rpm, current_rpm
     
     def get_rpm_percent(self, max_rpm, current_rpm) -> int:
+        if max_rpm == 0 or current_rpm == 0:
+            return 0
         return int((current_rpm / max_rpm) * 100)

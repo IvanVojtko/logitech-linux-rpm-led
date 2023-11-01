@@ -1,5 +1,6 @@
 import sys
 import gi
+import multiprocessing
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, Gio, GObject
@@ -31,6 +32,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         # Create the main window
         super().__init__(*args, **kwargs)
 
+        self.thread = None
+        self.running = False
+
         self.set_title("G29 RPM LED indicator")
         self.set_default_size(600, 250)
         # Create a box to organize the elements
@@ -58,7 +62,6 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
     def on_button_clicked(self, button, combo):
         choice = combo.get_selected()
-        print(choice)
         if choice == FORZA_HORIZON_5:
             game = ForzaHorizon5()
         elif choice == F1_2019:
@@ -68,9 +71,22 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         else:
             game = None
 
-        udp_socket = game.connect()
         wheel = G29()
         wheel.connect()
+
+        if not self.running:
+            self.running = True
+            self.thread = multiprocessing.Process(target=self.game_handling_loop, args=(game, wheel, choice))
+            self.thread.daemon = True
+            self.thread.start()
+            button.set_label("Stop")
+        else:
+            self.thread.terminate()
+            self.running = False
+            button.set_label("Start")
+
+    def game_handling_loop(self, game, wheel, choice):
+        udp_socket = game.connect()
         percent = 0
 
         while True:
