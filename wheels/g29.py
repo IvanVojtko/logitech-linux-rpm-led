@@ -11,8 +11,9 @@ class G29:
     def connect(self):
         try:
             self.device = hid.Device(VENDOR_ID, PRODUCT_ID)
-        except:
-            raise Exception("Device not found.")
+        except hid.HIDException:
+            return False
+        return True
     
     def leds_rpm(self, percent):
         if percent > 84:

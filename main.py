@@ -15,16 +15,23 @@ F1_2019 = 1
 F1_2023 = 2
 
 
-class Widget(GObject.Object):
+class Widget(Gtk.Box):
     __gtype_name__ = 'Widget'
 
-    def __init__(self, name):
+    def __init__(self, name, image_path):
         super().__init__()
         self._name = name
+
+        # Create an image widget
+        self._image = image_path
 
     @GObject.Property
     def name(self):
         return self._name
+
+    @GObject.Property
+    def image(self):
+        return self._image
 
 
 class WheelRPMWindow(Gtk.ApplicationWindow):
@@ -36,29 +43,46 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.running = False
 
         self.set_title("G29 RPM LED indicator")
-        self.set_default_size(600, 250)
+        self.set_default_size(250, 100)
         # Create a box to organize the elements
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        inner_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+        title = Gtk.Label()
+        title.set_text("Select your game:")
+        box.append(title)
+        box.append(inner_box)
         self.set_child(box)
 
-        ## Create factory
+        # Create factory
         factory_widget = Gtk.SignalListItemFactory()
         factory_widget.connect("setup", self._on_factory_widget_setup)
         factory_widget.connect("bind", self._on_factory_widget_bind)
 
         # Create a dropdown (Gtk.ComboBoxText)
-        games = Gtk.StringList()
         self.model_widget = Gio.ListStore(item_type=Widget)
-        self.model_widget.append(Widget(name="Forza Horizon 5"))
-        self.model_widget.append(Widget(name="F1 2019"))
-        self.model_widget.append(Widget(name="F1 2023"))
+        self.model_widget.append(Widget(name="Forza Horizon 5", image_path='icons/forza-horizon-5.png'))
+        self.model_widget.append(Widget(name="F1 2019", image_path='icons/f1-2019.png'))
+        self.model_widget.append(Widget(name="F1 2023", image_path='icons/f1-2023.png'))
         combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
-        box.append(combo)
+        inner_box.append(combo)
+
+        self.wheel = G29()
+        connected = self.wheel.connect()
+
+        wheel_check = Gtk.CheckButton()
+        wheel_check.set_sensitive(False)
+        wheel_check.set_label("Wheel detected?")
+        if not connected:
+            wheel_check.set_active(False)
+        else:
+            wheel_check.set_active(True)
 
         # Create a button (Gtk.Button)
         button = Gtk.Button(label="Start")
         button.connect("clicked", self.on_button_clicked, combo)
-        box.append(button)
+        inner_box.append(button)
+        box.append(wheel_check)
 
     def on_button_clicked(self, button, combo):
         choice = combo.get_selected()
@@ -71,12 +95,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         else:
             game = None
 
-        wheel = G29()
-        wheel.connect()
-
         if not self.running:
             self.running = True
-            self.thread = multiprocessing.Process(target=self.game_handling_loop, args=(game, wheel, choice))
+            self.thread = multiprocessing.Process(target=self.game_handling_loop, args=(game, self.wheel, choice))
             self.thread.daemon = True
             self.thread.start()
             button.set_label("Stop")
@@ -104,13 +125,17 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
     def _on_factory_widget_setup(self, factory, list_item):
         box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         label = Gtk.Label()
+        image = Gtk.Image()
+        box.append(image)
         box.append(label)
         list_item.set_child(box)
 
     def _on_factory_widget_bind(self, factory, list_item):
         box = list_item.get_child()
-        label = box.get_first_child()
+        image = box.get_first_child()
+        label = image.get_next_sibling()
         widget = list_item.get_item()
+        image.set_from_file(widget.image)
         label.set_text(widget.name)
 
 
