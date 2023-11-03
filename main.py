@@ -1,17 +1,130 @@
-from games.forza_horizon import ForzaHorizon5, MAX_POS, CURR_POS
+import sys
+import gi
+import multiprocessing
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+from gi.repository import Gtk, Adw, Gio, GObject
+
+from games.forza_horizon import ForzaHorizon5
+from games.f12019 import F12019
+from games.f12023 import F12023
 from wheels.g29 import G29
 
-horizon = ForzaHorizon5()
-udp_socket = horizon.connect()
-wheel = G29()
-wheel.connect()
+FORZA_HORIZON_5 = 0
+F1_2019 = 1
+F1_2023 = 2
 
-while True:
-    data = horizon.read_data(udp_socket=udp_socket)
-    max_rpm, current_rpm = horizon.parse_rpm(data=data)
-    
-    if max_rpm != 0 and current_rpm != 0:
-        percent = horizon.get_rpm_percent(current_rpm=current_rpm, max_rpm=max_rpm)
-        wheel.leds_rpm(percent)
-    else:
-        wheel.leds_rpm(0)
+
+class Widget(GObject.Object):
+    __gtype_name__ = 'Widget'
+
+    def __init__(self, name):
+        super().__init__()
+        self._name = name
+
+    @GObject.Property
+    def name(self):
+        return self._name
+
+
+class WheelRPMWindow(Gtk.ApplicationWindow):
+    def __init__(self, *args, **kwargs):
+        # Create the main window
+        super().__init__(*args, **kwargs)
+
+        self.thread = None
+        self.running = False
+
+        self.set_title("G29 RPM LED indicator")
+        self.set_default_size(600, 250)
+        # Create a box to organize the elements
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.set_child(box)
+
+        ## Create factory
+        factory_widget = Gtk.SignalListItemFactory()
+        factory_widget.connect("setup", self._on_factory_widget_setup)
+        factory_widget.connect("bind", self._on_factory_widget_bind)
+
+        # Create a dropdown (Gtk.ComboBoxText)
+        games = Gtk.StringList()
+        self.model_widget = Gio.ListStore(item_type=Widget)
+        self.model_widget.append(Widget(name="Forza Horizon 5"))
+        self.model_widget.append(Widget(name="F1 2019"))
+        self.model_widget.append(Widget(name="F1 2023"))
+        combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
+        box.append(combo)
+
+        # Create a button (Gtk.Button)
+        button = Gtk.Button(label="Start")
+        button.connect("clicked", self.on_button_clicked, combo)
+        box.append(button)
+
+    def on_button_clicked(self, button, combo):
+        choice = combo.get_selected()
+        if choice == FORZA_HORIZON_5:
+            game = ForzaHorizon5()
+        elif choice == F1_2019:
+            game = F12019()
+        elif choice == F1_2023:
+            game = F12023()
+        else:
+            game = None
+
+        wheel = G29()
+        wheel.connect()
+
+        if not self.running:
+            self.running = True
+            self.thread = multiprocessing.Process(target=self.game_handling_loop, args=(game, wheel, choice))
+            self.thread.daemon = True
+            self.thread.start()
+            button.set_label("Stop")
+        else:
+            self.thread.terminate()
+            self.running = False
+            button.set_label("Start")
+
+    def game_handling_loop(self, game, wheel, choice):
+        udp_socket = game.connect()
+        percent = 0
+
+        while True:
+            data = game.read_data(udp_socket=udp_socket)
+            if choice == FORZA_HORIZON_5:
+                max_rpm, current_rpm = game.parse_rpm(data=data)
+                percent = game.get_rpm_percent(max_rpm=max_rpm, current_rpm=current_rpm)
+            elif choice == F1_2019 or choice == F1_2023:
+                percent = game.get_rpm_percent(data, percent)
+            if percent != 0:
+                wheel.leds_rpm(percent)
+            else:
+                wheel.leds_rpm(0)
+
+    def _on_factory_widget_setup(self, factory, list_item):
+        box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        label = Gtk.Label()
+        box.append(label)
+        list_item.set_child(box)
+
+    def _on_factory_widget_bind(self, factory, list_item):
+        box = list_item.get_child()
+        label = box.get_first_child()
+        widget = list_item.get_item()
+        label.set_text(widget.name)
+
+
+class RpmWheelApp(Adw.Application):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.connect('activate', self.on_activate)
+
+    def on_activate(self, app):
+        self.win = WheelRPMWindow(application=app)
+        self.win.connect('destroy', self.quit)
+        self.win.present()
+
+
+if __name__ == "__main__":
+    app = RpmWheelApp(application_id="com.example.GtkApplication")
+    app.run(sys.argv)
