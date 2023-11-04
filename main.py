@@ -8,11 +8,13 @@ from gi.repository import Gtk, Adw, Gio, GObject
 from games.forza_horizon import ForzaHorizon5
 from games.f12019 import F12019
 from games.f12023 import F12023
+from games.dirt_rally_2_0 import DirtRally2
 from wheels.g29 import G29
 
 FORZA_HORIZON_5 = 0
 F1_2019 = 1
 F1_2023 = 2
+DIRT_RALLY_2_0 = 3
 
 
 class Widget(Gtk.Box):
@@ -64,6 +66,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="Forza Horizon 5", image_path='icons/forza-horizon-5.png'))
         self.model_widget.append(Widget(name="F1 2019", image_path='icons/f1-2019.png'))
         self.model_widget.append(Widget(name="F1 2023", image_path='icons/f1-2023.png'))
+        self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path='icons/dirt-rally-2-0.png'))
         combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
         inner_box.append(combo)
 
@@ -92,6 +95,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             game = F12019()
         elif choice == F1_2023:
             game = F12023()
+        elif choice == DIRT_RALLY_2_0:
+            game = DirtRally2()
         else:
             game = None
 
@@ -115,7 +120,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             if choice == FORZA_HORIZON_5:
                 max_rpm, current_rpm = game.parse_rpm(data=data)
                 percent = game.get_rpm_percent(max_rpm=max_rpm, current_rpm=current_rpm)
-            elif choice == F1_2019 or choice == F1_2023:
+            else:
                 percent = game.get_rpm_percent(data, percent)
             if percent != 0:
                 wheel.leds_rpm(percent)
