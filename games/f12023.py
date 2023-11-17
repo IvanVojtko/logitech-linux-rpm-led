@@ -26,7 +26,7 @@ class F12023:
         packet_header_format = '<HBBBBBQfIIBB'
         
         # Define the struct format for CarTelemetryData
-        car_telemetry_format = '<HfffBbHBBH4H4B4BH4F4B'
+        car_telemetry_format = '<HfffBbHBBH4H4B4BH4f4B'
         
         # Calculate the expected size of a single CarTelemetryData
         car_telemetry_size = struct.calcsize(car_telemetry_format)
