@@ -32,3 +32,9 @@ Enable RPM LED indicator on Logitech G29 steering wheel in Linux.
 3. Set extra_data=3
 4. Set UDP IP Address to 127.0.0.1
 5. Set Port to 20777
+
+## How to run games based on SMS' Madness engine (AMS 2 / Project Cars / Project Cars 2)
+1. Go to Options > System
+2. Set Shared Memory to NO
+3. Set UDP Frequency to 4. Lower number updates LEDs faster but increases CPU load
+4. Set UDP Protocol Version to Project Cars 1

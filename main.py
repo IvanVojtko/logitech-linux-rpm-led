@@ -9,12 +9,14 @@ from games.forza_horizon import ForzaHorizon5
 from games.f12019 import F12019
 from games.f12023 import F12023
 from games.dirt_rally_2_0 import DirtRally2
+from games.automobilista_2 import Automobilista2
 from wheels.g29 import G29
 
 FORZA_HORIZON_5 = 0
 F1_2019 = 1
 F1_2023 = 2
 DIRT_RALLY_2_0 = 3
+AMS_2 = 4
 
 
 class Widget(Gtk.Box):
@@ -67,6 +69,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="F1 2019", image_path='icons/f1-2019.png'))
         self.model_widget.append(Widget(name="F1 2023", image_path='icons/f1-2023.png'))
         self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path='icons/dirt-rally-2-0.png'))
+        self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path='icons/ams-2.png'))
         combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
         inner_box.append(combo)
 
@@ -97,6 +100,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             game = F12023()
         elif choice == DIRT_RALLY_2_0:
             game = DirtRally2()
+        elif choice == AMS_2:
+            game = Automobilista2()
         else:
             game = None
 
