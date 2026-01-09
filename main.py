@@ -47,7 +47,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
         self.thread = None
         self.running = False
-        last_send = 0.0
+        self.last_send = 0.0
 
         self.set_title("G29 RPM LED indicator")
         self.set_default_size(250, 100)
@@ -137,7 +137,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 wheel.leds_rpm(percent)
               else:
                 wheel.leds_rpm(0)
-              last_send = now
+              self.last_send = now
 
     def _on_factory_widget_setup(self, factory, list_item):
         box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)

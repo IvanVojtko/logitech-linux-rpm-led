@@ -1,11 +1,12 @@
 import hid
-from wheels.g29  import G29
-from wheels.g923 import G923
+from wheels.wheels import G29
+from wheels.wheels import G923xbox
+from wheels.wheels import G923ps4
 from wheels.base import BaseWheel
 
 # Register every VID/PID with its class
 DEVICE_MAP: dict[tuple[int, int], type[BaseWheel]] = {}
-for cls in (G29, G923):
+for cls in (G29, G923xbox, G923ps4):
     for pid in cls.PRODUCT_IDS:
         DEVICE_MAP[(cls.VENDOR_ID, pid)] = cls
 
