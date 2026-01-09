@@ -1,4 +1,6 @@
 import sys
+import time
+
 import gi
 import multiprocessing
 gi.require_version('Gtk', '4.0')
@@ -10,7 +12,7 @@ from games.f12019 import F12019
 from games.f12023 import F12023
 from games.dirt_rally_2_0 import DirtRally2
 from games.automobilista_2 import Automobilista2
-from wheels.g29 import G29
+from wheels.detect import find_wheel
 
 FORZA_HORIZON_5 = 0
 F1_2019 = 1
@@ -45,6 +47,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
         self.thread = None
         self.running = False
+        self.last_send = 0.0
 
         self.set_title("G29 RPM LED indicator")
         self.set_default_size(250, 100)
@@ -73,13 +76,14 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
         inner_box.append(combo)
 
-        self.wheel = G29()
-        connected = self.wheel.connect()
+        self.wheel = find_wheel()
+        if not self.wheel:
+            print("No supported Logitech wheel found.")
 
         wheel_check = Gtk.CheckButton()
         wheel_check.set_sensitive(False)
         wheel_check.set_label("Wheel detected?")
-        if not connected:
+        if not self.wheel:
             wheel_check.set_active(False)
         else:
             wheel_check.set_active(True)
@@ -127,10 +131,13 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 percent = game.get_rpm_percent(max_rpm=max_rpm, current_rpm=current_rpm)
             else:
                 percent = game.get_rpm_percent(data, percent)
-            if percent != 0:
+            now = time.perf_counter()
+            if now - self.last_send >= 0.05:
+              if percent != 0:
                 wheel.leds_rpm(percent)
-            else:
+              else:
                 wheel.leds_rpm(0)
+              self.last_send = now
 
     def _on_factory_widget_setup(self, factory, list_item):
         box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
