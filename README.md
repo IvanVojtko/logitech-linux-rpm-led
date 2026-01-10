@@ -12,14 +12,7 @@ Enable RPM LED indicator on Logitech G29 steering wheel in Linux.
 3. Enable data output
 4. Set IP to `127.0.0.1` and port to `5300`
 
-## How to run F1 2019
-1. Open Game Options > Settings > Telemetry Settings
-2. Set UDP Telemetry to On
-3. Set UDP Broadcast Mode to Off
-4. Set UDP IP Address to 127.0.0.1
-5. Set Port to 20777 (default value)
-
-## How to run F1 2023
+## How to run F1 2019, F1 2020, F1 22, F1 23
 1. Open Game Options > Settings > Telemetry Settings
 2. Set UDP Telemetry to On
 3. Set UDP Broadcast Mode to Off
