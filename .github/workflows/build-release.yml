@@ -1,0 +1,179 @@
+name: Build DEB/RPM on Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    env:
+      APP_NAME: logitech-rpm-indicator
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set version from release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Using VERSION=$VERSION (from tag $TAG)"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install packaging tools (fpm + rpm)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential rpm zip
+          sudo gem install --no-document fpm
+
+      - name: Build dependency wheels (bundled into package)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip wheel
+          mkdir -p build/wheels
+          # Build wheels for requirements so installs can be offline later
+          pip wheel -r requirements.txt -w build/wheels
+
+      - name: Prepare package root + scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PKGROOT="pkgroot"
+          DIST="dist"
+          rm -rf "$PKGROOT" "$DIST"
+          mkdir -p "$PKGROOT/opt/$APP_NAME" \
+                   "$PKGROOT/usr/bin" \
+                   "$PKGROOT/usr/share/doc/$APP_NAME" \
+                   "$DIST"
+
+          # Copy only what you want packaged (explicit list avoids .venv, .git, etc.)
+          cp -a main.py requirements.txt "$PKGROOT/opt/$APP_NAME/"
+          [ -f README.md ] && cp -a README.md "$PKGROOT/usr/share/doc/$APP_NAME/" || true
+          [ -f LICENSE ] && cp -a LICENSE "$PKGROOT/usr/share/doc/$APP_NAME/" || true
+          [ -d games ] && cp -a games "$PKGROOT/opt/$APP_NAME/" || true
+          [ -d icons ] && cp -a icons "$PKGROOT/opt/$APP_NAME/" || true
+
+          # Bundle wheels we just built
+          mkdir -p "$PKGROOT/opt/$APP_NAME/wheels"
+          cp -a build/wheels/* "$PKGROOT/opt/$APP_NAME/wheels/" || true
+
+          # Runner wrapper
+          cat > "$PKGROOT/usr/bin/$APP_NAME" <<EOF
+          #!/bin/sh
+          set -e
+          APP_DIR="/opt/$APP_NAME"
+          export PYTHONPATH="\$APP_DIR/.deps:\$PYTHONPATH"
+          exec /usr/bin/python3 "\$APP_DIR/main.py" "\$@"
+          EOF
+          chmod 0755 "$PKGROOT/usr/bin/$APP_NAME"
+
+          # Post-install: install deps into /opt/<app>/.deps (offline if wheels exist)
+          cat > after-install.sh <<'EOF'
+          #!/bin/sh
+          set -e
+
+          APP_DIR="/opt/__APP_NAME__"
+          DEPS_DIR="$APP_DIR/.deps"
+
+          mkdir -p "$DEPS_DIR"
+
+          if command -v pip3 >/dev/null 2>&1; then
+            PIP="pip3"
+          else
+            PIP="/usr/bin/python3 -m pip"
+          fi
+
+          # Prefer bundled wheels (offline)
+          if [ -d "$APP_DIR/wheels" ] && ls "$APP_DIR/wheels"/*.whl >/dev/null 2>&1; then
+            $PIP install --upgrade --no-index --find-links "$APP_DIR/wheels" \
+              --target "$DEPS_DIR" -r "$APP_DIR/requirements.txt"
+          else
+            # Fallback: hits PyPI at install time
+            $PIP install --upgrade --target "$DEPS_DIR" -r "$APP_DIR/requirements.txt"
+          fi
+          EOF
+          sed -i "s/__APP_NAME__/$APP_NAME/g" after-install.sh
+          chmod 0755 after-install.sh
+
+      - name: Build .deb and .rpm
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          DESC="$(head -n 1 README.md 2>/dev/null || echo "$APP_NAME")"
+
+          # DEB (arch-independent)
+          fpm -s dir -t deb \
+            -n "$APP_NAME" \
+            -v "$VERSION" \
+            -a all \
+            --iteration 1 \
+            --license "MIT" \
+            --maintainer "Ivan" \
+            --url "$REPO_URL" \
+            --description "$DESC" \
+            --depends "python3" \
+            --depends "python3-pip" \
+            --after-install after-install.sh \
+            -C pkgroot .
+
+          # RPM (arch-independent)
+          fpm -s dir -t rpm \
+            -n "$APP_NAME" \
+            -v "$VERSION" \
+            -a noarch \
+            --iteration 1 \
+            --license "MIT" \
+            --maintainer "Ivan" \
+            --url "$REPO_URL" \
+            --description "$DESC" \
+            --depends "python3" \
+            --depends "python3-pip" \
+            --after-install after-install.sh \
+            -C pkgroot .
+
+          # Move outputs into dist/
+          mv ./*.deb dist/
+          mv ./*.rpm dist/
+
+      - name: Build source archives (explicit assets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # Source tar.gz and zip from the exact release commit
+          git archive --format=tar.gz -o "dist/${APP_NAME}-${VERSION}-src.tar.gz" "$GITHUB_SHA"
+          git archive --format=zip    -o "dist/${APP_NAME}-${VERSION}-src.zip" "$GITHUB_SHA"
+
+      - name: Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd dist && sha256sum * > SHA256SUMS)
+
+      - name: Upload assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
+          fail_on_unmatched_files: true
