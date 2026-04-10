@@ -1,16 +1,41 @@
 import socket
-from struct import unpack
+import struct
 
 MAX_POS = 49
 CURR_POS = 48
 BUFFER_SIZE = 2048
 
 
+def _build_packet_string() -> str:
+    packet_string = "HB"
+    packet_string += "B"
+    packet_string += "bb"
+    packet_string += "BBbBB"
+    packet_string += "B"
+    packet_string += "21f"
+    packet_string += "H"
+    packet_string += "B"
+    packet_string += "B"
+    packet_string += "hHhHHBBBBBbffHHBBbB"
+    packet_string += "22f"
+    packet_string += "8B12f8B8f12B4h20H16f4H"
+    packet_string += "2f"
+    packet_string += "2B"
+    packet_string += "bbBbbb"
+
+    packet_string += "hhhHBBBBf" * 56
+    packet_string += "fBBB"
+    return packet_string
+
+
+PACKET_STRUCT = struct.Struct(_build_packet_string())
+TELEMETRY_PACKET_SIZE = PACKET_STRUCT.size
+
+
 class Automobilista2:
     def __init__(self):
         self.ip = "0.0.0.0"
         self.port = 5606
-        self.packet_string = self.get_packet_string()
         
     def connect(self):
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -24,36 +49,13 @@ class Automobilista2:
     
     def get_rpm_percent(self, data, percent) -> int:
         # not a telemetry packet. Return previous percent
-        if len(data) != 1367:
+        if len(data) != TELEMETRY_PACKET_SIZE:
             return percent
         
-        telemetry_data = unpack(self.packet_string, data)
+        telemetry_data = PACKET_STRUCT.unpack_from(data)
         current_rpm = int(telemetry_data[CURR_POS])
         max_rpm = int(telemetry_data[MAX_POS])
 
         if max_rpm == 0 or current_rpm == 0:
             return percent
         return int((current_rpm / max_rpm) * 100)
-    
-    def get_packet_string(self):
-        packet_string = "HB"
-        packet_string += "B"
-        packet_string += "bb"
-        packet_string += "BBbBB"
-        packet_string += "B"
-        packet_string += "21f"
-        packet_string += "H"
-        packet_string += "B"
-        packet_string += "B"
-        packet_string += "hHhHHBBBBBbffHHBBbB"
-        packet_string += "22f"
-        packet_string += "8B12f8B8f12B4h20H16f4H"
-        packet_string += "2f"
-        packet_string += "2B"
-        packet_string += "bbBbbb"
-
-        packet_string += "hhhHBBBBf"*56
-
-        packet_string += "fBBB"
-
-        return packet_string

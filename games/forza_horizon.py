@@ -4,6 +4,8 @@ import struct
 MAX_POS = [8, 12]
 CURR_POS = [16, 20]
 BUFFER_SIZE = 323
+RPM_PACKET_MIN_SIZE = CURR_POS[1]
+FLOAT32_LE = struct.Struct('<f')
 
 
 class ForzaHorizon5:
@@ -21,11 +23,10 @@ class ForzaHorizon5:
         return data
     
     def parse_rpm(self, data) -> tuple:
-        max_rpm_byte = data[MAX_POS[0]:MAX_POS[1]]
-        current_rpm_byte = data[CURR_POS[0]:CURR_POS[1]]
-        
-        max_rpm = struct.unpack('<f', max_rpm_byte)[0]
-        current_rpm = struct.unpack('<f', current_rpm_byte)[0]
+        if len(data) < RPM_PACKET_MIN_SIZE:
+            return 0.0, 0.0
+        max_rpm = FLOAT32_LE.unpack_from(data, MAX_POS[0])[0]
+        current_rpm = FLOAT32_LE.unpack_from(data, CURR_POS[0])[0]
         return max_rpm, current_rpm
     
     def get_rpm_percent(self, max_rpm, current_rpm) -> int:
