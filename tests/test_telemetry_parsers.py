@@ -4,6 +4,10 @@ import unittest
 from games.dirt_rally_2_0 import CURR_POS as DIRT_CURR_POS
 from games.dirt_rally_2_0 import MAX_POS as DIRT_MAX_POS
 from games.dirt_rally_2_0 import DirtRally2
+from games.assetto_corsa import CURRENT_RPM_POS as AC_CURRENT_RPM_POS
+from games.assetto_corsa import PACKET_IDENTIFIER as AC_PACKET_IDENTIFIER
+from games.assetto_corsa import PACKET_SIZE_POS as AC_PACKET_SIZE_POS
+from games.assetto_corsa import AssettoCorsa
 from games.f12019 import CAR_TELEMETRY_ID as F12019_TELEMETRY_ID
 from games.f12019 import PACKET_ID_POS as F12019_PACKET_ID_POS
 from games.f12019 import PLAYER_CAR_INDEX_POS as F12019_PLAYER_CAR_INDEX_POS
@@ -75,6 +79,32 @@ class TestDirtParser(unittest.TestCase):
         values[DIRT_CURR_POS] = 4000.0
         packet = struct.pack("<66f", *values)
         self.assertEqual(game.get_rpm_percent(packet, 0), 50)
+
+
+class TestAssettoCorsaParser(unittest.TestCase):
+    def test_valid_packet_computes_percent(self) -> None:
+        game = AssettoCorsa(max_rpm=9000)
+        packet = bytearray(128)
+        packet[0] = AC_PACKET_IDENTIFIER
+        packet[AC_PACKET_SIZE_POS:AC_PACKET_SIZE_POS + 4] = struct.pack("<i", len(packet))
+        packet[AC_CURRENT_RPM_POS:AC_CURRENT_RPM_POS + 4] = struct.pack("<f", 4500.0)
+        self.assertEqual(game.get_rpm_percent(bytes(packet), 7), 50)
+
+    def test_invalid_packet_returns_previous_percent(self) -> None:
+        game = AssettoCorsa(max_rpm=9000)
+        packet = bytearray(128)
+        packet[0] = ord("z")
+        packet[AC_PACKET_SIZE_POS:AC_PACKET_SIZE_POS + 4] = struct.pack("<i", len(packet))
+        packet[AC_CURRENT_RPM_POS:AC_CURRENT_RPM_POS + 4] = struct.pack("<f", 4500.0)
+        self.assertEqual(game.get_rpm_percent(bytes(packet), 41), 41)
+
+    def test_zero_rpm_returns_zero(self) -> None:
+        game = AssettoCorsa(max_rpm=9000)
+        packet = bytearray(128)
+        packet[0] = AC_PACKET_IDENTIFIER
+        packet[AC_PACKET_SIZE_POS:AC_PACKET_SIZE_POS + 4] = struct.pack("<i", len(packet))
+        packet[AC_CURRENT_RPM_POS:AC_CURRENT_RPM_POS + 4] = struct.pack("<f", 0.0)
+        self.assertEqual(game.get_rpm_percent(bytes(packet), 73), 0)
 
 
 class TestF1PlayerCarSelection(unittest.TestCase):

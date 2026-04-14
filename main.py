@@ -15,6 +15,7 @@ from games.f12022 import F12022
 from games.f12023 import F12023
 from games.dirt_rally_2_0 import DirtRally2
 from games.automobilista_2 import Automobilista2
+from games.assetto_corsa import AssettoCorsa
 from wheels.detect import find_wheel
 
 FORZA_HORIZON_5 =   0
@@ -24,6 +25,7 @@ F1_2022 =           3
 F1_2023 =           4
 DIRT_RALLY_2_0 =    5
 AMS_2 =             6
+ASSETTO_CORSA =     7
 
 APP_CSS = """
 .rpm-window {
@@ -165,10 +167,24 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="F1 2023", image_path='icons/f1-2023.png'))
         self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path='icons/dirt-rally-2-0.png'))
         self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path='icons/ams-2.png'))
+        self.model_widget.append(Widget(name="Assetto Corsa", image_path='icons/ams-2.png'))
         self.combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
         self.combo.set_hexpand(True)
         self.combo.set_enable_search(True)
         game_panel.append(self.combo)
+        self.combo.connect("notify::selected", self._on_game_selected_changed)
+
+        self.assetto_max_rpm_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.assetto_max_rpm_label = Gtk.Label(label="Assetto Max RPM")
+        self.assetto_max_rpm_label.set_xalign(0)
+        self.assetto_max_rpm_label.set_hexpand(True)
+        self.assetto_max_rpm_input = Gtk.SpinButton.new_with_range(1000, 20000, 100)
+        self.assetto_max_rpm_input.set_numeric(True)
+        self.assetto_max_rpm_input.set_value(9000)
+        self.assetto_max_rpm_row.append(self.assetto_max_rpm_label)
+        self.assetto_max_rpm_row.append(self.assetto_max_rpm_input)
+        self.assetto_max_rpm_row.set_visible(False)
+        game_panel.append(self.assetto_max_rpm_row)
 
         self.wheel = find_wheel()
         if not self.wheel:
@@ -232,6 +248,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self._update_wheel_status()
         self._update_running_status()
         self._update_rpm_preview(0)
+        self._on_game_selected_changed()
         GLib.timeout_add(80, self._refresh_process_state)
         self.connect("close-request", self._on_close_request)
 
@@ -256,6 +273,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             return
         self.wheel_status_icon.set_from_icon_name("dialog-warning-symbolic")
         self.wheel_status_text.set_text("Not detected (preview only)")
+
+    def _on_game_selected_changed(self, *_args):
+        self.assetto_max_rpm_row.set_visible(self.combo.get_selected() == ASSETTO_CORSA)
 
     @staticmethod
     def _percent_to_led_bits(percent):
@@ -354,6 +374,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             game = DirtRally2()
         elif choice == AMS_2:
             game = Automobilista2()
+        elif choice == ASSETTO_CORSA:
+            game = AssettoCorsa(max_rpm=self.assetto_max_rpm_input.get_value())
         else:
             game = None
 
@@ -413,6 +435,12 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             except Exception:
                 pass
             if udp_socket:
+                try:
+                    disconnect = getattr(game, "disconnect", None)
+                    if callable(disconnect):
+                        disconnect(udp_socket)
+                except Exception:
+                    pass
                 udp_socket.close()
 
     def _on_factory_widget_setup(self, factory, list_item):
