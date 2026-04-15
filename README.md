@@ -11,6 +11,8 @@ This project listens to the game’s telemetry/UDP data output and drives the wh
 - RPM LED (shift light) support for Logitech wheels on Linux
 - Simple UI: select game → Start
 - Works with multiple telemetry formats (see supported games below)
+- Auto-reconnect telemetry loop (recovers after game/launcher transitions)
+- Assetto Corsa max RPM is persisted in `~/.config/logitech-rpm-indicator/settings.ini`
 
 ---
 
@@ -153,6 +155,7 @@ python main.py
 1. Enable Assetto Corsa remote telemetry (UDP) in game settings.
 2. In this app, select **Assetto Corsa** from the dropdown.
 3. Set **Assetto Max RPM** in the input field to match your current car.
+4. The value is saved automatically and restored on next launch.
 
 ---
 

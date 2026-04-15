@@ -1,6 +1,9 @@
 import sys
 import time
 import socket
+import os
+import configparser
+from pathlib import Path
 
 import gi
 import threading
@@ -26,6 +29,12 @@ F1_2023 =           4
 DIRT_RALLY_2_0 =    5
 AMS_2 =             6
 ASSETTO_CORSA =     7
+
+DEFAULT_ASSETTO_MAX_RPM = 9000
+MIN_ASSETTO_MAX_RPM = 1000
+MAX_ASSETTO_MAX_RPM = 20000
+RECONNECT_DELAY_SECONDS = 1.0
+RECONNECT_INACTIVITY_SECONDS = 3.0
 
 APP_CSS = """
 .rpm-window {
@@ -118,6 +127,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.stop_event = threading.Event()
         self.running = False
         self.shared_rpm_percent = 0
+        self.settings_path = self._get_settings_path()
+        self.assetto_max_rpm = DEFAULT_ASSETTO_MAX_RPM
+        self._load_settings()
 
         self._ensure_css()
         self.add_css_class("rpm-window")
@@ -178,9 +190,12 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.assetto_max_rpm_label = Gtk.Label(label="Assetto Max RPM")
         self.assetto_max_rpm_label.set_xalign(0)
         self.assetto_max_rpm_label.set_hexpand(True)
-        self.assetto_max_rpm_input = Gtk.SpinButton.new_with_range(1000, 20000, 100)
+        self.assetto_max_rpm_input = Gtk.SpinButton.new_with_range(
+            MIN_ASSETTO_MAX_RPM, MAX_ASSETTO_MAX_RPM, 100
+        )
         self.assetto_max_rpm_input.set_numeric(True)
-        self.assetto_max_rpm_input.set_value(9000)
+        self.assetto_max_rpm_input.set_value(self.assetto_max_rpm)
+        self.assetto_max_rpm_input.connect("value-changed", self._on_assetto_max_rpm_changed)
         self.assetto_max_rpm_row.append(self.assetto_max_rpm_label)
         self.assetto_max_rpm_row.append(self.assetto_max_rpm_input)
         self.assetto_max_rpm_row.set_visible(False)
@@ -266,6 +281,42 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         value_box.append(label)
         row.append(value_box)
 
+    @staticmethod
+    def _get_settings_path():
+        config_home = os.environ.get("XDG_CONFIG_HOME")
+        if config_home:
+            base_dir = Path(config_home)
+        else:
+            base_dir = Path.home() / ".config"
+        return base_dir / "logitech-rpm-indicator" / "settings.ini"
+
+    def _load_settings(self):
+        parser = configparser.ConfigParser()
+        if not self.settings_path.exists():
+            return
+        try:
+            parser.read(self.settings_path, encoding="utf-8")
+            value = parser.getint(
+                "assetto_corsa", "max_rpm", fallback=DEFAULT_ASSETTO_MAX_RPM
+            )
+            self.assetto_max_rpm = max(MIN_ASSETTO_MAX_RPM, min(value, MAX_ASSETTO_MAX_RPM))
+        except Exception as exc:
+            print(f"Failed to read settings: {exc}")
+
+    def _save_settings(self):
+        parser = configparser.ConfigParser()
+        parser["assetto_corsa"] = {"max_rpm": str(int(self.assetto_max_rpm))}
+        try:
+            self.settings_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.settings_path.open("w", encoding="utf-8") as settings_file:
+                parser.write(settings_file)
+        except Exception as exc:
+            print(f"Failed to write settings: {exc}")
+
+    def _on_assetto_max_rpm_changed(self, _spin):
+        self.assetto_max_rpm = int(self.assetto_max_rpm_input.get_value())
+        self._save_settings()
+
     def _update_wheel_status(self):
         if self.wheel:
             self.wheel_status_icon.set_from_icon_name("emblem-ok-symbolic")
@@ -336,6 +387,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.running = False
 
     def _on_close_request(self, _window):
+        self.assetto_max_rpm = int(self.assetto_max_rpm_input.get_value())
+        self._save_settings()
         self._stop_telemetry()
         return False
 
@@ -375,7 +428,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         elif choice == AMS_2:
             game = Automobilista2()
         elif choice == ASSETTO_CORSA:
-            game = AssettoCorsa(max_rpm=self.assetto_max_rpm_input.get_value())
+            self.assetto_max_rpm = int(self.assetto_max_rpm_input.get_value())
+            self._save_settings()
+            game = AssettoCorsa(max_rpm=self.assetto_max_rpm)
         else:
             game = None
 
@@ -405,43 +460,81 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         udp_socket = None
         percent = 0
         last_send = 0.0
-        try:
-            udp_socket = game.connect()
-            udp_socket.settimeout(0.2)
-            while not self.stop_event.is_set():
-                try:
-                    data = game.read_data(udp_socket=udp_socket)
-                except socket.timeout:
+        last_packet_time = 0.0
+        next_reconnect_time = 0.0
+        while not self.stop_event.is_set():
+            now = time.monotonic()
+            if udp_socket is None:
+                if now < next_reconnect_time:
+                    time.sleep(0.05)
                     continue
-                if choice == FORZA_HORIZON_5:
-                    max_rpm, current_rpm = game.parse_rpm(data=data)
-                    percent = game.get_rpm_percent(max_rpm=max_rpm, current_rpm=current_rpm)
-                else:
-                    percent = game.get_rpm_percent(data, percent)
-                clamped_percent = max(0, min(int(percent), 100))
-                self.shared_rpm_percent = clamped_percent
-                now = time.perf_counter()
-                if now - last_send >= 0.05:
-                    if wheel:
-                        wheel.leds_rpm(clamped_percent if clamped_percent != 0 else 0)
-                    last_send = now
-        except Exception as exc:
-            print(f"Telemetry loop stopped: {exc}")
-        finally:
-            self.shared_rpm_percent = 0
-            try:
-                if wheel:
-                    wheel.leds_rpm(0)
-            except Exception:
-                pass
-            if udp_socket:
                 try:
-                    disconnect = getattr(game, "disconnect", None)
-                    if callable(disconnect):
-                        disconnect(udp_socket)
-                except Exception:
-                    pass
-                udp_socket.close()
+                    udp_socket = game.connect()
+                    udp_socket.settimeout(0.2)
+                    last_packet_time = time.monotonic()
+                    self.shared_rpm_percent = 0
+                    percent = 0
+                    print("Telemetry connection established.")
+                except Exception as exc:
+                    print(f"Telemetry connect failed: {exc}")
+                    self.shared_rpm_percent = 0
+                    next_reconnect_time = now + RECONNECT_DELAY_SECONDS
+                    time.sleep(0.05)
+                    continue
+
+            try:
+                data = game.read_data(udp_socket=udp_socket)
+            except socket.timeout:
+                if (
+                    time.monotonic() - last_packet_time
+                    >= RECONNECT_INACTIVITY_SECONDS
+                ):
+                    udp_socket = self._close_game_socket(game, udp_socket)
+                    next_reconnect_time = time.monotonic() + RECONNECT_DELAY_SECONDS
+                continue
+            except Exception as exc:
+                print(f"Telemetry read failed, reconnecting: {exc}")
+                udp_socket = self._close_game_socket(game, udp_socket)
+                next_reconnect_time = time.monotonic() + RECONNECT_DELAY_SECONDS
+                continue
+
+            last_packet_time = time.monotonic()
+            if choice == FORZA_HORIZON_5:
+                max_rpm, current_rpm = game.parse_rpm(data=data)
+                percent = game.get_rpm_percent(max_rpm=max_rpm, current_rpm=current_rpm)
+            else:
+                percent = game.get_rpm_percent(data, percent)
+            clamped_percent = max(0, min(int(percent), 100))
+            self.shared_rpm_percent = clamped_percent
+            now = time.perf_counter()
+            if now - last_send >= 0.05:
+                if wheel:
+                    wheel.leds_rpm(clamped_percent if clamped_percent != 0 else 0)
+                last_send = now
+
+        self.shared_rpm_percent = 0
+        try:
+            if wheel:
+                wheel.leds_rpm(0)
+        except Exception:
+            pass
+        self._close_game_socket(game, udp_socket)
+
+    @staticmethod
+    def _close_game_socket(game, udp_socket):
+        if not udp_socket:
+            return None
+        try:
+            disconnect = getattr(game, "disconnect", None)
+            if callable(disconnect):
+                disconnect(udp_socket)
+        except Exception:
+            pass
+        try:
+            udp_socket.close()
+        except Exception:
+            pass
+        return None
 
     def _on_factory_widget_setup(self, factory, list_item):
         box = Gtk.Box(spacing=8, orientation=Gtk.Orientation.HORIZONTAL)
