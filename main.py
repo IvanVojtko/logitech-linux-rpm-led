@@ -179,7 +179,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="F1 2023", image_path='icons/f1-2023.png'))
         self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path='icons/dirt-rally-2-0.png'))
         self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path='icons/ams-2.png'))
-        self.model_widget.append(Widget(name="Assetto Corsa", image_path='icons/ams-2.png'))
+        self.model_widget.append(Widget(name="Assetto Corsa", image_path='icons/asseto.png'))
         self.combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
         self.combo.set_hexpand(True)
         self.combo.set_enable_search(True)
