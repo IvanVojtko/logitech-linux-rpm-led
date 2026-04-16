@@ -4,6 +4,8 @@ import struct
 MAX_POS = 63
 CURR_POS = 37
 BUFFER_SIZE = 1024
+CAR_TELEMETRY = struct.Struct('<66f')
+CAR_TELEMETRY_SIZE = CAR_TELEMETRY.size
 
 
 class DirtRally2:
@@ -21,8 +23,9 @@ class DirtRally2:
         return data
     
     def get_rpm_percent(self, data, percent) -> int:
-        car_telemetry_size = struct.calcsize('<66f')
-        game_data = struct.unpack('<66f', data[:car_telemetry_size])
+        if len(data) < CAR_TELEMETRY_SIZE:
+            return percent
+        game_data = CAR_TELEMETRY.unpack_from(data)
         max_rpm = game_data[MAX_POS]
         current_rpm = game_data[CURR_POS]
         if max_rpm == 0 or current_rpm == 0:
