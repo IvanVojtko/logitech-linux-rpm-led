@@ -153,7 +153,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
         self._ensure_css()
         self.add_css_class("rpm-window")
-        self.set_title("G29 RPM LED indicator")
+        self.set_title("Logitech RPM LED indicator")
         self.set_default_size(560, 350)
         self.set_size_request(460, 300)
 
