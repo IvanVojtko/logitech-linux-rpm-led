@@ -12,7 +12,10 @@ This project listens to the game’s telemetry/UDP data output and drives the wh
 - Simple UI: select game → Start
 - Works with multiple telemetry formats (see supported games below)
 - Auto-reconnect telemetry loop (recovers after game/launcher transitions)
+- Optional auto-detect mode: switches selected game profile from running Steam game/process
+- In auto-detect mode, telemetry stops automatically when no supported game is running
 - Assetto Corsa max RPM is persisted in `~/.config/logitech-rpm-indicator/settings.ini`
+- Optional "Remember last selected game" restores the dropdown selection on app launch
 
 ---
 
@@ -91,8 +94,10 @@ python main.py
 2. Start the application:
    - From package install: `logitech-rpm-indicator`
    - From source: `python main.py`
-3. Select the game from the dropdown and click **Start**.
-4. Launch the game and ensure telemetry output is enabled (instructions below).
+3. Optional: enable **Auto-detect running game (Steam/process)** to auto-switch profiles.
+4. Optional: enable **Remember last selected game** to restore the dropdown on startup.
+5. Select the game from the dropdown and click **Start**.
+6. Launch the game and ensure telemetry output is enabled (instructions below).
 
 ---
 
