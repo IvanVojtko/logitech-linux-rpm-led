@@ -16,6 +16,7 @@ This project listens to the game’s telemetry/UDP data output and drives the wh
 - In auto-detect mode, telemetry stops automatically when no supported game is running
 - Assetto Corsa max RPM is persisted in `~/.config/logitech-rpm-indicator/settings.ini`
 - Optional "Remember last selected game" restores the dropdown selection on app launch
+- Shift-light RPM thresholds are user-configurable in UI and persisted in settings
 
 ---
 
@@ -96,8 +97,9 @@ python main.py
    - From source: `python main.py`
 3. Optional: enable **Auto-detect running game (Steam/process)** to auto-switch profiles.
 4. Optional: enable **Remember last selected game** to restore the dropdown on startup.
-5. Select the game from the dropdown and click **Start**.
-6. Launch the game and ensure telemetry output is enabled (instructions below).
+5. Optional: tune **Shift LEDs (%)** thresholds to match your preferred shift-light band.
+6. Select the game from the dropdown and click **Start**.
+7. Launch the game and ensure telemetry output is enabled (instructions below).
 
 ---
 

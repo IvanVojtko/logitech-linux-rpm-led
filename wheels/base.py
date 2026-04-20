@@ -13,6 +13,8 @@ _led_report(bits: int) -> Sequence[int]
     """
     VENDOR_ID: int = 0x046d          # Logitech
     PRODUCT_IDS: Iterable[int] = ()
+    DEFAULT_SHIFT_LIGHT_THRESHOLDS: Sequence[int] = (68, 76, 84, 91, 96)
+    SHIFT_LIGHT_THRESHOLDS: Sequence[int] = DEFAULT_SHIFT_LIGHT_THRESHOLDS
 
     def __init__(self) -> None:
         self._dev: hid.Device | None = None
@@ -44,13 +46,27 @@ _led_report(bits: int) -> Sequence[int]
 
     # ---------- helpers ----------
 
+    @classmethod
+    def set_shift_light_thresholds(cls, thresholds: Sequence[int]) -> tuple[int, ...]:
+        expected_count = len(cls.DEFAULT_SHIFT_LIGHT_THRESHOLDS)
+        if len(thresholds) != expected_count:
+            cls.SHIFT_LIGHT_THRESHOLDS = tuple(cls.DEFAULT_SHIFT_LIGHT_THRESHOLDS)
+            return tuple(cls.SHIFT_LIGHT_THRESHOLDS)
+
+        normalized = []
+        for index, raw_threshold in enumerate(thresholds):
+            low = 0 if index == 0 else normalized[index - 1] + 1
+            high = 100 - (expected_count - index - 1)
+            threshold = int(raw_threshold)
+            normalized.append(max(low, min(threshold, high)))
+
+        cls.SHIFT_LIGHT_THRESHOLDS = tuple(normalized)
+        return tuple(cls.SHIFT_LIGHT_THRESHOLDS)
+
     @staticmethod
     def _percent_to_bits(pct: float) -> int:
-        return (
-            0b11111 if pct > 84
-            else 0b01111 if pct > 69
-            else 0b00111 if pct > 39
-            else 0b00011 if pct > 19
-            else 0b00001 if pct >  4
-            else 0
-        )
+        bits = 0
+        for index, threshold in enumerate(BaseWheel.SHIFT_LIGHT_THRESHOLDS):
+            if pct >= threshold:
+                bits |= (1 << index)
+        return bits
