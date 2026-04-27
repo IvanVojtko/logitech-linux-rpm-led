@@ -20,6 +20,7 @@ from games.dirt_rally_2_0 import DirtRally2
 from games.automobilista_2 import Automobilista2
 from games.assetto_corsa import AssettoCorsa
 from games.autodetect import detect_running_game
+from wheels.base import BaseWheel
 from wheels.detect import find_wheel
 
 FORZA_HORIZON_5 =   0
@@ -39,6 +40,7 @@ RECONNECT_INACTIVITY_SECONDS = 3.0
 AUTO_DETECT_INTERVAL_SECONDS = 1.0
 DEFAULT_REMEMBER_LAST_GAME = False
 DEFAULT_LAST_SELECTED_GAME = FORZA_HORIZON_5
+SHIFT_LIGHT_THRESHOLD_COUNT = 5
 
 GAME_KEY_TO_CHOICE = {
     "forza_horizon_5": FORZA_HORIZON_5,
@@ -149,7 +151,10 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.last_auto_detect_check = 0.0
         self.settings_path = self._get_settings_path()
         self.assetto_max_rpm = DEFAULT_ASSETTO_MAX_RPM
+        self.shift_light_thresholds = tuple(BaseWheel.DEFAULT_SHIFT_LIGHT_THRESHOLDS)
+        self._updating_shift_light_inputs = False
         self._load_settings()
+        self.shift_light_thresholds = BaseWheel.set_shift_light_thresholds(self.shift_light_thresholds)
 
         self._ensure_css()
         self.add_css_class("rpm-window")
@@ -218,6 +223,23 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
         if self.remember_last_selected_game and self._is_valid_choice(self.last_selected_game_choice):
             self.combo.set_selected(self.last_selected_game_choice)
+
+        self.shift_light_threshold_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.shift_light_threshold_label = Gtk.Label(label="Shift LEDs (%)")
+        self.shift_light_threshold_label.set_xalign(0)
+        self.shift_light_threshold_label.set_hexpand(True)
+        self.shift_light_threshold_row.append(self.shift_light_threshold_label)
+        self.shift_light_threshold_inputs = []
+        for index, threshold in enumerate(self.shift_light_thresholds):
+            threshold_input = Gtk.SpinButton.new_with_range(0, 100, 1)
+            threshold_input.set_numeric(True)
+            threshold_input.set_width_chars(3)
+            threshold_input.set_value(threshold)
+            threshold_input.set_tooltip_text(f"LED {index + 1} threshold")
+            threshold_input.connect("value-changed", self._on_shift_light_threshold_changed, index)
+            self.shift_light_threshold_inputs.append(threshold_input)
+            self.shift_light_threshold_row.append(threshold_input)
+        game_panel.append(self.shift_light_threshold_row)
 
         self.assetto_max_rpm_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.assetto_max_rpm_label = Gtk.Label(label="Assetto Max RPM")
@@ -328,6 +350,20 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             base_dir = Path.home() / ".config"
         return base_dir / "logitech-rpm-indicator" / "settings.ini"
 
+    @staticmethod
+    def _serialize_shift_light_thresholds(thresholds):
+        return ",".join(str(int(threshold)) for threshold in thresholds)
+
+    @staticmethod
+    def _parse_shift_light_thresholds(raw_value):
+        try:
+            parsed = [int(part.strip()) for part in raw_value.split(",") if part.strip() != ""]
+        except ValueError:
+            return tuple(BaseWheel.DEFAULT_SHIFT_LIGHT_THRESHOLDS)
+        if len(parsed) != SHIFT_LIGHT_THRESHOLD_COUNT:
+            return tuple(BaseWheel.DEFAULT_SHIFT_LIGHT_THRESHOLDS)
+        return tuple(parsed)
+
     def _load_settings(self):
         parser = configparser.ConfigParser()
         if not self.settings_path.exists():
@@ -347,6 +383,12 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 "assetto_corsa", "max_rpm", fallback=DEFAULT_ASSETTO_MAX_RPM
             )
             self.assetto_max_rpm = max(MIN_ASSETTO_MAX_RPM, min(value, MAX_ASSETTO_MAX_RPM))
+            shift_thresholds_raw = parser.get(
+                "shift_lights",
+                "thresholds",
+                fallback=self._serialize_shift_light_thresholds(BaseWheel.DEFAULT_SHIFT_LIGHT_THRESHOLDS),
+            )
+            self.shift_light_thresholds = self._parse_shift_light_thresholds(shift_thresholds_raw)
         except Exception as exc:
             print(f"Failed to read settings: {exc}")
 
@@ -358,12 +400,34 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             "last_selected_game": str(int(self.last_selected_game_choice)),
         }
         parser["assetto_corsa"] = {"max_rpm": str(int(self.assetto_max_rpm))}
+        parser["shift_lights"] = {
+            "thresholds": self._serialize_shift_light_thresholds(self.shift_light_thresholds)
+        }
         try:
             self.settings_path.parent.mkdir(parents=True, exist_ok=True)
             with self.settings_path.open("w", encoding="utf-8") as settings_file:
                 parser.write(settings_file)
         except Exception as exc:
             print(f"Failed to write settings: {exc}")
+
+    def _set_shift_light_thresholds(self, thresholds, save=True):
+        self.shift_light_thresholds = BaseWheel.set_shift_light_thresholds(thresholds)
+        self._sync_shift_light_threshold_inputs()
+        display_percent = self.shared_rpm_percent if self.running else 0
+        self._update_rpm_preview(display_percent)
+        if save:
+            self._save_settings()
+
+    def _sync_shift_light_threshold_inputs(self):
+        if not hasattr(self, "shift_light_threshold_inputs"):
+            return
+        self._updating_shift_light_inputs = True
+        try:
+            for threshold_input, threshold in zip(self.shift_light_threshold_inputs, self.shift_light_thresholds):
+                if int(threshold_input.get_value()) != int(threshold):
+                    threshold_input.set_value(int(threshold))
+        finally:
+            self._updating_shift_light_inputs = False
 
     def _on_assetto_max_rpm_changed(self, _spin):
         self.assetto_max_rpm = int(self.assetto_max_rpm_input.get_value())
@@ -379,6 +443,12 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         if self._is_valid_choice(self.combo.get_selected()):
             self.last_selected_game_choice = int(self.combo.get_selected())
         self._save_settings()
+
+    def _on_shift_light_threshold_changed(self, _spin, _index):
+        if self._updating_shift_light_inputs:
+            return
+        thresholds = [int(input_widget.get_value()) for input_widget in self.shift_light_threshold_inputs]
+        self._set_shift_light_thresholds(thresholds, save=True)
 
     def _update_wheel_status(self):
         if self.wheel:
@@ -398,14 +468,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
     @staticmethod
     def _percent_to_led_bits(percent):
-        return (
-            0b11111 if percent > 84
-            else 0b01111 if percent > 69
-            else 0b00111 if percent > 39
-            else 0b00011 if percent > 19
-            else 0b00001 if percent > 4
-            else 0
-        )
+        return BaseWheel._percent_to_bits(percent)
 
     def _update_rpm_preview(self, percent):
         clamped = max(0, min(int(percent), 100))
