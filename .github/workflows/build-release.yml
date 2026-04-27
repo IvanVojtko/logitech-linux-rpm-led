@@ -1,4 +1,4 @@
-name: Build DEB/RPM on Release
+name: Build DEB/RPM/Arch on Release
 
 on:
   release:
@@ -36,12 +36,12 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install packaging tools (fpm + rpm)
+      - name: Install packaging tools (fpm + rpm + pacman)
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev build-essential rpm zip
+          sudo apt-get install -y ruby ruby-dev build-essential rpm zip libarchive-tools zstd
           sudo gem install --no-document fpm
 
       # NOTE:
@@ -100,6 +100,7 @@ jobs:
           [ -f LICENSE ] && cp -a LICENSE "$PKGROOT/usr/share/doc/$APP_NAME/" || true
 
           [ -d games ] && cp -a games "$PKGROOT/opt/$APP_NAME/" || true
+          [ -d wheels ] && cp -a wheels "$PKGROOT/opt/$APP_NAME/" || true
           [ -d icons ] && cp -a icons "$PKGROOT/opt/$APP_NAME/" || true
 
           # Bundle wheels we built
@@ -154,7 +155,7 @@ jobs:
           sed -i "s/__APP_NAME__/$APP_NAME/g" after-install.sh
           chmod 0755 after-install.sh
 
-      - name: Build .deb and .rpm
+      - name: Build .deb, .rpm, and Arch package
         shell: bash
         run: |
           set -euo pipefail
@@ -178,6 +179,14 @@ jobs:
             --depends "python3-pip"
             --depends "python3-gobject"
             --depends "python3-cairo"
+          )
+
+          # Arch Linux runtime deps for PyGObject / Cairo.
+          ARCH_DEPS=(
+            --depends "python"
+            --depends "python-pip"
+            --depends "python-gobject"
+            --depends "python-cairo"
           )
 
           # DEB (arch-independent)
@@ -208,9 +217,25 @@ jobs:
             "${RPM_DEPS[@]}" \
             -C pkgroot .
 
+          # Arch Linux pacman package (arch-independent)
+          fpm -s dir -t pacman \
+            -n "$APP_NAME" \
+            -v "$VERSION" \
+            -a all \
+            --iteration 1 \
+            --license "GPL-3.0-only" \
+            --maintainer "$MAINTAINER" \
+            --url "$REPO_URL" \
+            --description "$DESC" \
+            --pacman-compression zstd \
+            --after-install after-install.sh \
+            "${ARCH_DEPS[@]}" \
+            -C pkgroot .
+
           mkdir -p dist
           mv ./*.deb dist/
           mv ./*.rpm dist/
+          mv ./*.pkg.tar.* dist/
 
       - name: Build source archives (explicit assets)
         shell: bash
