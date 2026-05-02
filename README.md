@@ -199,6 +199,14 @@ sudo udevadm trigger
 
 ---
 
+## Support
+
+If you like my work, consider supporting me:
+
+[![Support my work](https://img.buymeacoffee.com/button-api/?text=Support%20my%20work&emoji=&slug=ivanvojtko&button_colour=FF5F5F&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00)](https://www.buymeacoffee.com/ivanvojtko)
+
+---
+
 ## License
 
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
