@@ -40,6 +40,10 @@ This project listens to the game’s telemetry/UDP data output and drives the wh
 
 2. Install:
 
+The binary packages declare runtime dependencies on distro repository packages
+(`python3-hid`, PyGObject, Cairo, GTK 4, and libadwaita equivalents) and do not
+install Python packages with `pip`.
+
 **Debian/Ubuntu (.deb)**
 
 ```bash
@@ -74,6 +78,19 @@ logitech-rpm-indicator
 
 - Python 3
 - `pip`
+- GTK 4, libadwaita, and GObject introspection development packages
+
+On Debian/Ubuntu:
+
+```bash
+sudo apt install python3-dev libcairo2-dev libgirepository-2.0-dev gir1.2-gtk-4.0 gir1.2-adw-1
+```
+
+On Fedora:
+
+```bash
+sudo dnf install python3-devel cairo-devel gobject-introspection-devel gtk4-devel libadwaita-devel
+```
 
 #### Steps
 

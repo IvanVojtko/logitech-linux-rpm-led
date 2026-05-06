@@ -31,11 +31,6 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "Using VERSION=$VERSION (from tag $TAG)"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Install packaging tools (fpm + rpm + pacman)
         shell: bash
         run: |
@@ -44,42 +39,7 @@ jobs:
           sudo apt-get install -y ruby ruby-dev build-essential rpm zip libarchive-tools zstd
           sudo gem install --no-document fpm
 
-      # NOTE:
-      # PyGObject + pycairo are strongly tied to system libraries.
-      # For reliable DEB/RPM installs across distros, we install them as OS deps,
-      # and only bundle wheels for the remaining pip packages.
-      - name: Install system deps for building wheels (hid)
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y \
-            pkg-config \
-            python3-dev \
-            build-essential \
-            libhidapi-dev \
-            libusb-1.0-0-dev
-
-      - name: Build dependency wheels (exclude PyGObject/pycairo - use OS packages)
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip wheel
-
-          mkdir -p build/wheels
-
-          # Filter out packages we want to provide via distro packages
-          # (Avoids "gobject-introspection-1.0 not found" build errors.)
-          mkdir -p build
-          (grep -vE '^(PyGObject|pycairo)=' requirements.txt > build/requirements-pip.txt) || true
-
-          if [ -s build/requirements-pip.txt ]; then
-            pip wheel -r build/requirements-pip.txt -w build/wheels
-          else
-            echo "No pip-wheel packages after filtering; skipping wheel build."
-          fi
-
-      - name: Prepare package root + scripts
+      - name: Prepare package root
         shell: bash
         run: |
           set -euo pipefail
@@ -93,8 +53,7 @@ jobs:
                    "$DIST"
 
           # Copy only what you want packaged (explicit list avoids .venv, .git, etc.)
-          cp -a main.py requirements.txt "$PKGROOT/opt/$APP_NAME/"
-          [ -f build/requirements-pip.txt ] && cp -a build/requirements-pip.txt "$PKGROOT/opt/$APP_NAME/requirements-pip.txt" || true
+          cp -a main.py "$PKGROOT/opt/$APP_NAME/"
 
           [ -f README.md ] && cp -a README.md "$PKGROOT/usr/share/doc/$APP_NAME/" || true
           [ -f LICENSE ] && cp -a LICENSE "$PKGROOT/usr/share/doc/$APP_NAME/" || true
@@ -103,57 +62,14 @@ jobs:
           [ -d wheels ] && cp -a wheels "$PKGROOT/opt/$APP_NAME/" || true
           [ -d icons ] && cp -a icons "$PKGROOT/opt/$APP_NAME/" || true
 
-          # Bundle wheels we built
-          mkdir -p "$PKGROOT/opt/$APP_NAME/wheels"
-          if [ -d build/wheels ]; then
-            cp -a build/wheels/* "$PKGROOT/opt/$APP_NAME/wheels/" 2>/dev/null || true
-          fi
-
           # Runner wrapper (installed on PATH)
           cat > "$PKGROOT/usr/bin/$APP_NAME" <<EOF
           #!/bin/sh
           set -e
           APP_DIR="/opt/$APP_NAME"
-          export PYTHONPATH="\$APP_DIR/.deps:\$PYTHONPATH"
           exec /usr/bin/python3 "\$APP_DIR/main.py" "\$@"
           EOF
           chmod 0755 "$PKGROOT/usr/bin/$APP_NAME"
-
-          # Post-install: install pip-only deps into /opt/<app>/.deps (offline if wheels exist)
-          cat > after-install.sh <<'EOF'
-          #!/bin/sh
-          set -e
-
-          APP_DIR="/opt/__APP_NAME__"
-          DEPS_DIR="$APP_DIR/.deps"
-          mkdir -p "$DEPS_DIR"
-
-          if command -v pip3 >/dev/null 2>&1; then
-            PIP="pip3"
-          else
-            PIP="/usr/bin/python3 -m pip"
-          fi
-
-          # Prefer filtered requirements file if present
-          REQ_FILE="$APP_DIR/requirements-pip.txt"
-          if [ ! -s "$REQ_FILE" ]; then
-            # Fallback (not recommended if it contains PyGObject/pycairo)
-            REQ_FILE="$APP_DIR/requirements.txt"
-          fi
-
-          if [ -s "$REQ_FILE" ]; then
-            # Prefer bundled wheels (offline)
-            if [ -d "$APP_DIR/wheels" ] && ls "$APP_DIR/wheels"/*.whl >/dev/null 2>&1; then
-              $PIP install --upgrade --no-index --find-links "$APP_DIR/wheels" \
-                --target "$DEPS_DIR" -r "$REQ_FILE"
-            else
-              # Fallback: hits PyPI at install time
-              $PIP install --upgrade --target "$DEPS_DIR" -r "$REQ_FILE"
-            fi
-          fi
-          EOF
-          sed -i "s/__APP_NAME__/$APP_NAME/g" after-install.sh
-          chmod 0755 after-install.sh
 
       - name: Build .deb, .rpm, and Arch package
         shell: bash
@@ -163,30 +79,35 @@ jobs:
           DESC="$(head -n 1 README.md 2>/dev/null || echo "$APP_NAME")"
           MAINTAINER="${{ github.actor }}"
 
-          # Debian/Ubuntu runtime deps for PyGObject / Cairo
-          # (These replace pip-installed PyGObject/pycairo.)
+          # Runtime dependencies are resolved by the target distro package manager.
           DEB_DEPS=(
             --depends "python3"
-            --depends "python3-pip"
+            --depends "python3-hid"
             --depends "python3-gi"
             --depends "python3-cairo"
             --depends "python3-gi-cairo"
+            --depends "gir1.2-gtk-4.0"
+            --depends "gir1.2-adw-1"
           )
 
-          # Fedora/RHEL/openSUSE runtime deps (names may vary slightly by distro family)
+          # Fedora runtime dependencies.
           RPM_DEPS=(
             --depends "python3"
-            --depends "python3-pip"
+            --depends "python3-hid"
             --depends "python3-gobject"
             --depends "python3-cairo"
+            --depends "gtk4"
+            --depends "libadwaita"
           )
 
-          # Arch Linux runtime deps for PyGObject / Cairo.
+          # Arch Linux runtime dependencies.
           ARCH_DEPS=(
             --depends "python"
-            --depends "python-pip"
+            --depends "python-hid"
             --depends "python-gobject"
             --depends "python-cairo"
+            --depends "gtk4"
+            --depends "libadwaita"
           )
 
           # DEB (arch-independent)
@@ -199,7 +120,6 @@ jobs:
             --maintainer "$MAINTAINER" \
             --url "$REPO_URL" \
             --description "$DESC" \
-            --after-install after-install.sh \
             "${DEB_DEPS[@]}" \
             -C pkgroot .
 
@@ -213,7 +133,6 @@ jobs:
             --maintainer "$MAINTAINER" \
             --url "$REPO_URL" \
             --description "$DESC" \
-            --after-install after-install.sh \
             "${RPM_DEPS[@]}" \
             -C pkgroot .
 
@@ -228,7 +147,6 @@ jobs:
             --url "$REPO_URL" \
             --description "$DESC" \
             --pacman-compression zstd \
-            --after-install after-install.sh \
             "${ARCH_DEPS[@]}" \
             -C pkgroot .
 
