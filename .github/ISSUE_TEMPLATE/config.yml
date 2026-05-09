@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Troubleshooting guide
+    url: https://github.com/IvanVojtko/logitech-linux-rpm-led#troubleshooting
+    about: Check setup, telemetry, and Linux device permission notes before opening an issue.

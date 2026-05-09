@@ -103,7 +103,6 @@ jobs:
           # Arch Linux runtime dependencies.
           ARCH_DEPS=(
             --depends "python"
-            --depends "python-hid"
             --depends "python-gobject"
             --depends "python-cairo"
             --depends "gtk4"
@@ -147,6 +146,8 @@ jobs:
             --url "$REPO_URL" \
             --description "$DESC" \
             --pacman-compression zstd \
+            --pacman-optional-depends "python-hid: HID support via pyhidapi bindings" \
+            --pacman-optional-depends "python-hidapi: HID support via cython-hidapi bindings" \
             "${ARCH_DEPS[@]}" \
             -C pkgroot .
 

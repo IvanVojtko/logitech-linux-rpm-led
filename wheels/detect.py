@@ -1,8 +1,8 @@
-import hid
 from wheels.wheels import G29
 from wheels.wheels import G923xbox
 from wheels.wheels import G923ps4
 from wheels.base import BaseWheel
+from wheels.hid_backend import enumerate_devices
 
 # Register every VID/PID with its class
 DEVICE_MAP: dict[tuple[int, int], type[BaseWheel]] = {}
@@ -13,7 +13,7 @@ for cls in (G29, G923xbox, G923ps4):
 
 def find_wheel() -> BaseWheel | None:
     """Return a connected wheel instance or None."""
-    for dev in hid.enumerate():
+    for dev in enumerate_devices():
         cls = DEVICE_MAP.get((dev['vendor_id'], dev['product_id']))
         if cls:
             wheel = cls()

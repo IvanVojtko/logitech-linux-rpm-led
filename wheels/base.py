@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-import hid
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
+
+from wheels.hid_backend import is_hid_error, open_device
 
 
 class BaseWheel(ABC):
@@ -17,18 +18,20 @@ _led_report(bits: int) -> Sequence[int]
     SHIFT_LIGHT_THRESHOLDS: Sequence[int] = DEFAULT_SHIFT_LIGHT_THRESHOLDS
 
     def __init__(self) -> None:
-        self._dev: hid.Device | None = None
+        self._dev: Any | None = None
         self._last_bits: int = -1    # cache to avoid spamming
 
 
     def connect(self) -> bool:
         for pid in self.PRODUCT_IDS:
             try:
-                self._dev = hid.Device(self.VENDOR_ID, pid)
+                self._dev = open_device(self.VENDOR_ID, pid)
                 self._post_connect_setup()
                 return True
-            except hid.HIDException:
-                continue
+            except Exception as error:
+                if is_hid_error(error):
+                    continue
+                raise
         return False
 
     def leds_rpm(self, percent: float) -> None:

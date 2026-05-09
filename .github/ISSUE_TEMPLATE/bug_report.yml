@@ -1,0 +1,102 @@
+name: Bug report
+description: Report a problem with the Logitech RPM LED Indicator.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please include enough detail to reproduce the issue, especially your wheel model, Linux distribution, install method, and game telemetry settings.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected to happen instead.
+      placeholder: The LEDs do not react when I start F1 23, even though telemetry is enabled.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact steps that trigger the issue.
+      placeholder: |
+        1. Connect Logitech G29
+        2. Start logitech-rpm-indicator
+        3. Select F1 23
+        4. Click Start
+        5. Launch the game
+    validations:
+      required: true
+
+  - type: dropdown
+    id: game
+    attributes:
+      label: Game
+      options:
+        - Forza Horizon 5
+        - F1 2019
+        - F1 2020
+        - F1 22
+        - F1 23
+        - DiRT Rally 2.0
+        - Automobilista 2
+        - Project CARS
+        - Project CARS 2
+        - Assetto Corsa
+        - Auto-detect mode
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: wheel
+    attributes:
+      label: Wheel model
+      placeholder: Logitech G29, G920, G923, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Linux distribution and version
+      placeholder: Fedora 40, Ubuntu 24.04, Arch Linux, etc.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Install method
+      options:
+        - Debian/Ubuntu package (.deb)
+        - Fedora/RHEL/openSUSE package (.rpm)
+        - Arch package
+        - Source checkout
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: App version or commit
+      description: Use the release version, package version, or git commit hash.
+      placeholder: v1.2.3 or 1a2b3c4
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or terminal output
+      description: Paste any errors from the terminal or package launcher.
+      render: shell
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Add screenshots, videos, hardware notes, or anything else that may help.
