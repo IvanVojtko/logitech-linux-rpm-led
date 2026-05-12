@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest an improvement, supported game, or wheel compatibility update.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What would you like to see?
+      description: Describe the feature or improvement.
+      placeholder: Add support for another game telemetry format.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: request_type
+    attributes:
+      label: Request type
+      options:
+        - New game support
+        - Wheel compatibility
+        - Telemetry parsing
+        - UI improvement
+        - Packaging or installation
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why is this useful?
+      description: Explain the use case or problem this would solve.
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Technical details or references
+      description: For new games, include telemetry documentation, UDP format details, ports, screenshots, or links if available.
+      placeholder: |
+        Game:
+        Telemetry protocol:
+        Default UDP port:
+        Documentation link:
+
+  - type: input
+    id: wheel
+    attributes:
+      label: Wheel model, if relevant
+      placeholder: Logitech G29, G920, G923, etc.
+
