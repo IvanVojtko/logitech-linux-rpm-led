@@ -21,6 +21,13 @@ class TestGameAutoDetect(unittest.TestCase):
         ]
         self.assertEqual(detect_game_from_processes(processes), "f1_2023")
 
+    def test_detects_ets2_by_steam_app_id(self) -> None:
+        processes = [
+            {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
+            {"name": "eurotrucks2.exe", "cmdline": "", "steam_app_id": "227300"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "euro_truck_simulator_2")
+
     def test_detects_forza_horizon_6_by_steam_app_id(self) -> None:
         processes = [
             {"name": "wineserver", "cmdline": "", "steam_app_id": "2483190"},

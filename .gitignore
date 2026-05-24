@@ -2,3 +2,5 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+scs-plugin/*.dll
+scs-plugin/*.so

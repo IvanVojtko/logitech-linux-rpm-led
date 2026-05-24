@@ -60,6 +60,15 @@ GAME_SIGNATURES = (
         "steam_app_ids": {"244210"},
         "process_tokens": ("assettocorsa.exe", "assetto corsa"),
     },
+    {
+        "key": "euro_truck_simulator_2",
+        "steam_app_ids": {"227300"},
+        "process_tokens": (
+            "eurotrucks2.exe",
+            "eurotrucks2",
+            "euro truck simulator 2",
+        ),
+    },
 )
 
 

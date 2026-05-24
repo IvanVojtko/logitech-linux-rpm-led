@@ -36,8 +36,16 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev build-essential rpm zip libarchive-tools zstd
+          sudo apt-get install -y ruby ruby-dev build-essential rpm zip unzip libarchive-tools zstd g++-mingw-w64-x86-64
           sudo gem install --no-document fpm
+
+      - name: Build ETS2 telemetry plugins
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L https://download.eurotrucksimulator2.com/scs_sdk_1_14.zip -o /tmp/scs_sdk_1_14.zip
+          unzip -q /tmp/scs_sdk_1_14.zip -d /tmp/scs_sdk_1_14
+          make -C scs-plugin SCS_SDK_DIR=/tmp/scs_sdk_1_14
 
       - name: Prepare package root
         shell: bash
@@ -61,6 +69,8 @@ jobs:
           [ -d games ] && cp -a games "$PKGROOT/opt/$APP_NAME/" || true
           [ -d wheels ] && cp -a wheels "$PKGROOT/opt/$APP_NAME/" || true
           [ -d icons ] && cp -a icons "$PKGROOT/opt/$APP_NAME/" || true
+          [ -d scs-plugin ] && cp -a scs-plugin "$PKGROOT/opt/$APP_NAME/" || true
+          [ -d scs-plugin ] && cp -a scs-plugin "$PKGROOT/usr/share/doc/$APP_NAME/" || true
 
           # Runner wrapper (installed on PATH)
           cat > "$PKGROOT/usr/bin/$APP_NAME" <<EOF
@@ -109,11 +119,11 @@ jobs:
             --depends "libadwaita"
           )
 
-          # DEB (arch-independent)
+          # DEB
           fpm -s dir -t deb \
             -n "$APP_NAME" \
             -v "$VERSION" \
-            -a all \
+            -a amd64 \
             --iteration 1 \
             --license "GPL-3.0-only" \
             --maintainer "$MAINTAINER" \
@@ -122,11 +132,11 @@ jobs:
             "${DEB_DEPS[@]}" \
             -C pkgroot .
 
-          # RPM (arch-independent)
+          # RPM
           fpm -s dir -t rpm \
             -n "$APP_NAME" \
             -v "$VERSION" \
-            -a noarch \
+            -a x86_64 \
             --iteration 1 \
             --license "GPL-3.0-only" \
             --maintainer "$MAINTAINER" \
@@ -135,11 +145,11 @@ jobs:
             "${RPM_DEPS[@]}" \
             -C pkgroot .
 
-          # Arch Linux pacman package (arch-independent)
+          # Arch Linux pacman package
           fpm -s dir -t pacman \
             -n "$APP_NAME" \
             -v "$VERSION" \
-            -a all \
+            -a x86_64 \
             --iteration 1 \
             --license "GPL-3.0-only" \
             --maintainer "$MAINTAINER" \
