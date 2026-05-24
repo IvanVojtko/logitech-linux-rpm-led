@@ -33,3 +33,7 @@ class ForzaHorizon5:
         if max_rpm == 0 or current_rpm == 0:
             return 0
         return int((current_rpm / max_rpm) * 100)
+
+
+class ForzaHorizon6(ForzaHorizon5):
+    pass

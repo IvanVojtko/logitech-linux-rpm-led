@@ -14,6 +14,11 @@ GAME_SIGNATURES = (
         "process_tokens": ("forzahorizon5.exe", "forza horizon 5"),
     },
     {
+        "key": "forza_horizon_6",
+        "steam_app_ids": {"2483190"},
+        "process_tokens": ("forzahorizon6.exe", "forza horizon 6"),
+    },
+    {
         "key": "f1_2019",
         "steam_app_ids": {"928600"},
         "process_tokens": ("f1_2019.exe",),
