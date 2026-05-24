@@ -11,7 +11,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, Gio, GObject, Gdk, GLib
 
-from games.forza_horizon import ForzaHorizon5
+from games.forza_horizon import ForzaHorizon5, ForzaHorizon6
 from games.f12019 import F12019
 from games.f12020 import F12020
 from games.f12022 import F12022
@@ -25,15 +25,19 @@ from games.autodetect import detect_running_game
 from wheels.base import BaseWheel
 from wheels.detect import find_wheel
 
-FORZA_HORIZON_5 =   0
-F1_2019 =           1
-F1_2020 =           2
-F1_2022 =           3
-F1_2023 =           4
-DIRT_RALLY_2_0 =    5
-AMS_2 =             6
-ASSETTO_CORSA =     7
-EURO_TRUCK_SIMULATOR_2 = 8
+APP_DIR = Path(__file__).resolve().parent
+ICONS_DIR = APP_DIR / "icons"
+
+AMS_2 =             0
+ASSETTO_CORSA =     1
+DIRT_RALLY_2_0 =    2
+F1_2019 =           3
+F1_2020 =           4
+F1_2022 =           5
+F1_2023 =           6
+FORZA_HORIZON_5 =   7
+FORZA_HORIZON_6 =   8
+EURO_TRUCK_SIMULATOR_2 = 9
 
 DEFAULT_ASSETTO_MAX_RPM = 9000
 MIN_ASSETTO_MAX_RPM = 1000
@@ -42,20 +46,25 @@ RECONNECT_DELAY_SECONDS = 1.0
 RECONNECT_INACTIVITY_SECONDS = 3.0
 AUTO_DETECT_INTERVAL_SECONDS = 1.0
 DEFAULT_REMEMBER_LAST_GAME = False
-DEFAULT_LAST_SELECTED_GAME = FORZA_HORIZON_5
+DEFAULT_LAST_SELECTED_GAME = AMS_2
 SHIFT_LIGHT_THRESHOLD_COUNT = 5
 
 GAME_KEY_TO_CHOICE = {
-    "forza_horizon_5": FORZA_HORIZON_5,
+    "ams_2": AMS_2,
+    "assetto_corsa": ASSETTO_CORSA,
+    "dirt_rally_2_0": DIRT_RALLY_2_0,
     "f1_2019": F1_2019,
     "f1_2020": F1_2020,
     "f1_2022": F1_2022,
     "f1_2023": F1_2023,
-    "dirt_rally_2_0": DIRT_RALLY_2_0,
-    "ams_2": AMS_2,
-    "assetto_corsa": ASSETTO_CORSA,
+    "forza_horizon_5": FORZA_HORIZON_5,
+    "forza_horizon_6": FORZA_HORIZON_6,
     "euro_truck_simulator_2": EURO_TRUCK_SIMULATOR_2,
 }
+
+
+def icon_path(filename):
+    return str(ICONS_DIR / filename)
 
 APP_CSS = """
 .rpm-window {
@@ -209,15 +218,16 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
         # Create a dropdown (Gtk.ComboBoxText)
         self.model_widget = Gio.ListStore(item_type=Widget)
-        self.model_widget.append(Widget(name="Forza Horizon 5", image_path='icons/forza-horizon-5.png'))
-        self.model_widget.append(Widget(name="F1 2019", image_path='icons/f1-2019.png'))
-        self.model_widget.append(Widget(name="F1 2020", image_path='icons/f1-2020.png'))
-        self.model_widget.append(Widget(name="F1 2022", image_path='icons/f1-2022.png'))
-        self.model_widget.append(Widget(name="F1 2023", image_path='icons/f1-2023.png'))
-        self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path='icons/dirt-rally-2-0.png'))
-        self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path='icons/ams-2.png'))
-        self.model_widget.append(Widget(name="Assetto Corsa", image_path='icons/asseto.png'))
-        self.model_widget.append(Widget(name="Euro Truck Simulator 2", image_path='icons/ams-2.png'))
+        self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path=icon_path("ams-2.png")))
+        self.model_widget.append(Widget(name="Assetto Corsa", image_path=icon_path("asseto.png")))
+        self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path=icon_path("dirt-rally-2-0.png")))
+        self.model_widget.append(Widget(name="F1 2019", image_path=icon_path("f1-2019.png")))
+        self.model_widget.append(Widget(name="F1 2020", image_path=icon_path("f1-2020.png")))
+        self.model_widget.append(Widget(name="F1 2022", image_path=icon_path("f1-2022.png")))
+        self.model_widget.append(Widget(name="F1 2023", image_path=icon_path("f1-2023.png")))
+        self.model_widget.append(Widget(name="Forza Horizon 5", image_path=icon_path("forza-horizon-5.png")))
+        self.model_widget.append(Widget(name="Forza Horizon 6", image_path=icon_path("forza-horizon-5.png")))
+        self.model_widget.append(Widget(name="Euro Truck Simulator 2", image_path=icon_path("ams-2.png")))
         self.combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
         self.combo.set_hexpand(True)
         self.combo.set_enable_search(True)
@@ -589,6 +599,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
     def _create_game_from_choice(self, choice):
         if choice == FORZA_HORIZON_5:
             return ForzaHorizon5()
+        if choice == FORZA_HORIZON_6:
+            return ForzaHorizon6()
         if choice == F1_2019:
             return F12019()
         if choice == F1_2020:
@@ -718,7 +730,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 continue
 
             last_packet_time = time.monotonic()
-            if choice == FORZA_HORIZON_5:
+            if choice in (FORZA_HORIZON_5, FORZA_HORIZON_6):
                 max_rpm, current_rpm = game.parse_rpm(data=data)
                 percent = game.get_rpm_percent(max_rpm=max_rpm, current_rpm=current_rpm)
             else:

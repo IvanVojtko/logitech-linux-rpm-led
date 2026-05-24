@@ -21,7 +21,7 @@ from games.f12022 import F12022
 from games.f12023 import PACKET_ID_POS as F12023_PACKET_ID_POS
 from games.f12023 import PLAYER_CAR_INDEX_POS as F12023_PLAYER_CAR_INDEX_POS
 from games.f12023 import F12023
-from games.forza_horizon import ForzaHorizon5
+from games.forza_horizon import ForzaHorizon5, ForzaHorizon6
 from games.euro_truck_simulator_2 import PACKET_MAGIC as ETS2_PACKET_MAGIC
 from games.euro_truck_simulator_2 import PACKET_STRUCT as ETS2_PACKET_STRUCT
 from games.euro_truck_simulator_2 import PACKET_VERSION as ETS2_PACKET_VERSION
@@ -69,6 +69,15 @@ class TestForzaParser(unittest.TestCase):
         max_rpm, curr_rpm = game.parse_rpm(bytes(packet))
         self.assertAlmostEqual(max_rpm, 9000.0)
         self.assertAlmostEqual(curr_rpm, 4500.0)
+
+    def test_forza_horizon_6_uses_same_parser(self) -> None:
+        game = ForzaHorizon6()
+        packet = bytearray(20)
+        packet[8:12] = struct.pack("<f", 8000.0)
+        packet[16:20] = struct.pack("<f", 6000.0)
+        max_rpm, curr_rpm = game.parse_rpm(bytes(packet))
+        self.assertAlmostEqual(max_rpm, 8000.0)
+        self.assertAlmostEqual(curr_rpm, 6000.0)
 
 
 class TestDirtParser(unittest.TestCase):
