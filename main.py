@@ -19,6 +19,7 @@ from games.f12023 import F12023
 from games.dirt_rally_2_0 import DirtRally2
 from games.automobilista_2 import Automobilista2
 from games.assetto_corsa import AssettoCorsa
+from games.euro_truck_simulator_2 import EuroTruckSimulator2
 from games.autodetect import detect_running_game
 from wheels.base import BaseWheel
 from wheels.detect import find_wheel
@@ -31,6 +32,7 @@ F1_2023 =           4
 DIRT_RALLY_2_0 =    5
 AMS_2 =             6
 ASSETTO_CORSA =     7
+EURO_TRUCK_SIMULATOR_2 = 8
 
 DEFAULT_ASSETTO_MAX_RPM = 9000
 MIN_ASSETTO_MAX_RPM = 1000
@@ -51,6 +53,7 @@ GAME_KEY_TO_CHOICE = {
     "dirt_rally_2_0": DIRT_RALLY_2_0,
     "ams_2": AMS_2,
     "assetto_corsa": ASSETTO_CORSA,
+    "euro_truck_simulator_2": EURO_TRUCK_SIMULATOR_2,
 }
 
 APP_CSS = """
@@ -205,6 +208,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path='icons/dirt-rally-2-0.png'))
         self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path='icons/ams-2.png'))
         self.model_widget.append(Widget(name="Assetto Corsa", image_path='icons/asseto.png'))
+        self.model_widget.append(Widget(name="Euro Truck Simulator 2", image_path='icons/ams-2.png'))
         self.combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
         self.combo.set_hexpand(True)
         self.combo.set_enable_search(True)
@@ -557,6 +561,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.assetto_max_rpm = int(self.assetto_max_rpm_input.get_value())
             self._save_settings()
             return AssettoCorsa(max_rpm=self.assetto_max_rpm)
+        if choice == EURO_TRUCK_SIMULATOR_2:
+            return EuroTruckSimulator2()
         return None
 
     def _start_telemetry_for_choice(self, choice):

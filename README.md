@@ -27,6 +27,7 @@ This project listens to the game’s telemetry/UDP data output and drives the wh
 - **DiRT Rally 2.0**
 - **SMS Madness Engine games** (e.g., **Automobilista 2**, **Project CARS**, **Project CARS 2**)
 - **Assetto Corsa** (manual max RPM input in app)
+- **Euro Truck Simulator 2** (requires the included SCS telemetry plugin)
 
 ---
 
@@ -180,6 +181,49 @@ python main.py
 2. In this app, select **Assetto Corsa** from the dropdown.
 3. Set **Assetto Max RPM** in the input field to match your current car.
 4. The value is saved automatically and restored on next launch.
+
+---
+
+### Euro Truck Simulator 2
+
+ETS2 does not expose RPM telemetry directly over UDP. It loads native SCS SDK
+plugins from the game directory, so this app includes a small plugin source in
+`scs-plugin/`. The plugin reads `truck.engine.rpm` and the truck `rpm.limit`
+configuration value from the SCS Telemetry SDK, then forwards a local UDP packet
+to this Python app on `127.0.0.1:5607`.
+
+Build and install the plugin:
+
+```bash
+curl -L https://download.eurotrucksimulator2.com/scs_sdk_1_14.zip -o /tmp/scs_sdk_1_14.zip
+unzip /tmp/scs_sdk_1_14.zip -d /tmp/scs_sdk_1_14
+make -C scs-plugin linux SCS_SDK_DIR=/tmp/scs_sdk_1_14
+```
+
+Copy `scs-plugin/logitech_rpm_telemetry.so` into the ETS2 plugin directory:
+
+```text
+<SteamLibrary>/steamapps/common/Euro Truck Simulator 2/bin/linux_x64/plugins/
+```
+
+Create the `plugins` directory if it does not exist, then start ETS2 and select
+**Euro Truck Simulator 2** in this app.
+
+For Proton/Windows ETS2, the same approach needs a Windows DLL build of the
+plugin. Install a MinGW-w64 cross compiler, then run:
+
+```bash
+make -C scs-plugin windows SCS_SDK_DIR=/tmp/scs_sdk_1_14
+```
+
+Copy `scs-plugin/logitech_rpm_telemetry.dll` into:
+
+```text
+<SteamLibrary>/steamapps/common/Euro Truck Simulator 2/bin/win_x64/plugins/
+```
+
+On a system with both compilers installed, `make -C scs-plugin
+SCS_SDK_DIR=/tmp/scs_sdk_1_14` builds both files.
 
 ---
 

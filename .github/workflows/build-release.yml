@@ -61,6 +61,7 @@ jobs:
           [ -d games ] && cp -a games "$PKGROOT/opt/$APP_NAME/" || true
           [ -d wheels ] && cp -a wheels "$PKGROOT/opt/$APP_NAME/" || true
           [ -d icons ] && cp -a icons "$PKGROOT/opt/$APP_NAME/" || true
+          [ -d scs-plugin ] && cp -a scs-plugin "$PKGROOT/usr/share/doc/$APP_NAME/" || true
 
           # Runner wrapper (installed on PATH)
           cat > "$PKGROOT/usr/bin/$APP_NAME" <<EOF
