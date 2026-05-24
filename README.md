@@ -187,12 +187,19 @@ python main.py
 ### Euro Truck Simulator 2
 
 ETS2 does not expose RPM telemetry directly over UDP. It loads native SCS SDK
-plugins from the game directory, so this app includes a small plugin source in
+plugins from the game directory, so this app includes a small plugin in
 `scs-plugin/`. The plugin reads `truck.engine.rpm` and the truck `rpm.limit`
 configuration value from the SCS Telemetry SDK, then forwards a local UDP packet
 to this Python app on `127.0.0.1:5607`.
 
-Build and install the plugin:
+If you installed this app from a release package, select **Euro Truck Simulator
+2** and click **Install ETS2 Telemetry Plugin**. The app searches your Steam
+libraries and copies the bundled Linux/Windows plugin files into the ETS2
+`plugins` directories.
+
+If you run from source, build the plugin first:
+
+Build the plugin:
 
 ```bash
 curl -L https://download.eurotrucksimulator2.com/scs_sdk_1_14.zip -o /tmp/scs_sdk_1_14.zip

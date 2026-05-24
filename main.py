@@ -20,6 +20,7 @@ from games.dirt_rally_2_0 import DirtRally2
 from games.automobilista_2 import Automobilista2
 from games.assetto_corsa import AssettoCorsa
 from games.euro_truck_simulator_2 import EuroTruckSimulator2
+from games.ets2_plugin_installer import install_ets2_plugins
 from games.autodetect import detect_running_game
 from wheels.base import BaseWheel
 from wheels.detect import find_wheel
@@ -93,6 +94,14 @@ APP_CSS = """
 
 .action-button {
   min-height: 40px;
+}
+
+.success-label {
+  color: #2f8f46;
+}
+
+.warning-label {
+  color: #b26a00;
 }
 
 .rpm-meter {
@@ -259,6 +268,18 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.assetto_max_rpm_row.append(self.assetto_max_rpm_input)
         self.assetto_max_rpm_row.set_visible(False)
         game_panel.append(self.assetto_max_rpm_row)
+
+        self.ets2_plugin_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.ets2_plugin_button = Gtk.Button(label="Install ETS2 Telemetry Plugin")
+        self.ets2_plugin_button.add_css_class("action-button")
+        self.ets2_plugin_button.connect("clicked", self._on_ets2_plugin_install_clicked)
+        self.ets2_plugin_status = Gtk.Label()
+        self.ets2_plugin_status.set_xalign(0)
+        self.ets2_plugin_status.set_wrap(True)
+        self.ets2_plugin_box.append(self.ets2_plugin_button)
+        self.ets2_plugin_box.append(self.ets2_plugin_status)
+        self.ets2_plugin_box.set_visible(False)
+        game_panel.append(self.ets2_plugin_box)
 
         self.wheel = find_wheel()
         if not self.wheel:
@@ -465,10 +486,33 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
     def _on_game_selected_changed(self, *_args):
         selected_choice = self.combo.get_selected()
         self.assetto_max_rpm_row.set_visible(selected_choice == ASSETTO_CORSA)
+        self.ets2_plugin_box.set_visible(selected_choice == EURO_TRUCK_SIMULATOR_2)
         if self._is_valid_choice(selected_choice):
             self.last_selected_game_choice = int(selected_choice)
             if self.remember_last_selected_game:
                 self._save_settings()
+
+    def _set_ets2_plugin_status(self, message, css_class):
+        self.ets2_plugin_status.remove_css_class("success-label")
+        self.ets2_plugin_status.remove_css_class("warning-label")
+        self.ets2_plugin_status.add_css_class(css_class)
+        self.ets2_plugin_status.set_text(message)
+
+    def _on_ets2_plugin_install_clicked(self, _button):
+        self.ets2_plugin_button.set_sensitive(False)
+        try:
+            installed_paths = install_ets2_plugins(app_dir=Path(__file__).resolve().parent)
+            if not installed_paths:
+                self._set_ets2_plugin_status("No ETS2 plugin files were installed.", "warning-label")
+                return
+            self._set_ets2_plugin_status(
+                f"Installed {len(installed_paths)} ETS2 plugin file(s). Restart ETS2 if it is already running.",
+                "success-label",
+            )
+        except Exception as exc:
+            self._set_ets2_plugin_status(str(exc), "warning-label")
+        finally:
+            self.ets2_plugin_button.set_sensitive(True)
 
     @staticmethod
     def _percent_to_led_bits(percent):
