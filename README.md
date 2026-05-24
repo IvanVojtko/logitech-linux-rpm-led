@@ -22,7 +22,7 @@ This project listens to the game’s telemetry/UDP data output and drives the wh
 
 ## Supported games
 
-- **Forza Horizon 5**
+- **Forza Horizon 5 / Forza Horizon 6**
 - **F1 2019 / F1 2020 / F1 22 / F1 23**
 - **DiRT Rally 2.0**
 - **SMS Madness Engine games** (e.g., **Automobilista 2**, **Project CARS**, **Project CARS 2**)
@@ -122,9 +122,9 @@ python main.py
 
 ## Game setup
 
-### Forza Horizon 5
+### Forza Horizon 5 / Forza Horizon 6
 
-1. Start **Forza Horizon 5**
+1. Start **Forza Horizon 5** or **Forza Horizon 6**
 2. Open **Settings → HUD**
 3. Enable **Data Output**
 4. Set:
