@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Logitech RPM LED Indicator
+Comment=Drive Logitech steering wheel RPM LEDs from game telemetry
+Exec=logitech-rpm-indicator
+Icon=logitech-rpm-indicator
+Terminal=false
+Categories=Utility;
+StartupNotify=true

@@ -6,6 +6,14 @@ This project listens to the game’s telemetry/UDP data output and drives the wh
 
 ---
 
+## Support
+
+If you like my work, consider supporting me:
+
+[![Support my work](https://img.buymeacoffee.com/button-api/?text=Support%20my%20work&emoji=&slug=ivanvojtko&button_colour=FF5F5F&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00)](https://www.buymeacoffee.com/ivanvojtko)
+
+---
+
 ## Features
 
 - RPM LED (shift light) support for Logitech wheels on Linux
@@ -104,6 +112,36 @@ pip install -r requirements.txt
 
 python main.py
 ```
+
+### Option C: Install from source on other Linux distributions
+
+The repository includes a distro-neutral `Makefile` for downstream packagers
+and local source installs. Runtime dependencies must still be installed through
+your distribution package manager.
+
+Install under `/usr`:
+
+```bash
+sudo make install
+```
+
+Downstream packaging can stage files without modifying the host system:
+
+```bash
+make install DESTDIR="$pkgdir"
+```
+
+Override standard paths when required by a distribution:
+
+```bash
+make install DESTDIR="$pkgdir" PREFIX=/usr APPDIR=/usr/lib/logitech-rpm-indicator
+```
+
+The install target includes the desktop launcher, scalable SVG icon, `256x256`
+PNG fallback, application sources, game artwork, and any ETS2 plugin binaries
+that have already been built. Staged installs skip desktop cache refreshes;
+package managers should run the provided `packaging/update-desktop-caches.sh`
+hook after installation and removal.
 
 ---
 
@@ -264,14 +302,6 @@ sudo udevadm trigger
 ```
 
 > If you prefer stricter permissions than `0666`, use a dedicated group and set `GROUP="..."` instead.
-
----
-
-## Support
-
-If you like my work, consider supporting me:
-
-[![Support my work](https://img.buymeacoffee.com/button-api/?text=Support%20my%20work&emoji=&slug=ivanvojtko&button_colour=FF5F5F&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00)](https://www.buymeacoffee.com/ivanvojtko)
 
 ---
 
