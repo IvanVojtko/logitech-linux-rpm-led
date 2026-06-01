@@ -27,9 +27,15 @@ jobs:
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
+          ARCH_VERSION="${VERSION//-/_}"
+          if [[ ! "$ARCH_VERSION" =~ ^[[:alnum:]_.]+$ ]]; then
+            echo "Invalid Arch package version: $ARCH_VERSION" >&2
+            exit 1
+          fi
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "Using VERSION=$VERSION (from tag $TAG)"
+          echo "ARCH_VERSION=$ARCH_VERSION" >> "$GITHUB_ENV"
+          echo "Using VERSION=$VERSION and ARCH_VERSION=$ARCH_VERSION (from tag $TAG)"
 
       - name: Install packaging tools (fpm + rpm + pacman)
         shell: bash
@@ -148,7 +154,7 @@ jobs:
           # Arch Linux pacman package
           fpm -s dir -t pacman \
             -n "$APP_NAME" \
-            -v "$VERSION" \
+            -v "$ARCH_VERSION" \
             -a x86_64 \
             --iteration 1 \
             --license "GPL-3.0-only" \
@@ -182,10 +188,12 @@ jobs:
           dpkg-deb --contents dist/*.deb | awk '{print $6}' | sed 's|^\./||' > /tmp/deb-files
           rpm -qlp dist/*.rpm | sed 's|^/||' > /tmp/rpm-files
           bsdtar -tf dist/*.pkg.tar.* | sed 's|^\./||' > /tmp/arch-files
+          bsdtar -xOf dist/*.pkg.tar.* .PKGINFO > /tmp/arch-pkginfo
 
           verify_paths /tmp/deb-files
           verify_paths /tmp/rpm-files
           verify_paths /tmp/arch-files
+          grep -qx "pkgver = ${ARCH_VERSION}-1" /tmp/arch-pkginfo
 
       - name: Build source archives (explicit assets)
         shell: bash
