@@ -6,6 +6,14 @@ This project listens to the game’s telemetry/UDP data output and drives the wh
 
 ---
 
+## Support
+
+If you like my work, consider supporting me:
+
+[![Support my work](https://img.buymeacoffee.com/button-api/?text=Support%20my%20work&emoji=&slug=ivanvojtko&button_colour=FF5F5F&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00)](https://www.buymeacoffee.com/ivanvojtko)
+
+---
+
 ## Features
 
 - RPM LED (shift light) support for Logitech wheels on Linux
@@ -294,14 +302,6 @@ sudo udevadm trigger
 ```
 
 > If you prefer stricter permissions than `0666`, use a dedicated group and set `GROUP="..."` instead.
-
----
-
-## Support
-
-If you like my work, consider supporting me:
-
-[![Support my work](https://img.buymeacoffee.com/button-api/?text=Support%20my%20work&emoji=&slug=ivanvojtko&button_colour=FF5F5F&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00)](https://www.buymeacoffee.com/ivanvojtko)
 
 ---
 
