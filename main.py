@@ -27,6 +27,7 @@ from wheels.detect import find_wheel
 
 APP_DIR = Path(__file__).resolve().parent
 ICONS_DIR = APP_DIR / "icons"
+APPLICATION_ID = "io.github.IvanVojtko.LogitechRpmIndicator"
 
 AMS_2 =             0
 ASSETTO_CORSA =     1
@@ -798,5 +799,5 @@ class RpmWheelApp(Adw.Application):
 
 
 if __name__ == "__main__":
-    app = RpmWheelApp(application_id="com.example.GtkApplication")
+    app = RpmWheelApp(application_id=APPLICATION_ID)
     app.run(sys.argv)

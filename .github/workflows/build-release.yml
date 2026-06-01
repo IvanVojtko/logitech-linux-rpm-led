@@ -47,6 +47,17 @@ jobs:
           unzip -q /tmp/scs_sdk_1_14.zip -d /tmp/scs_sdk_1_14
           make -C scs-plugin SCS_SDK_DIR=/tmp/scs_sdk_1_14
 
+      - name: Validate desktop assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y desktop-file-utils
+          desktop-file-validate packaging/io.github.IvanVojtko.LogitechRpmIndicator.desktop
+          test -s icons/logitech-rpm-indicator.png
+          test -s icons/logitech-rpm-indicator.svg
+          grep -qx 'Icon=logitech-rpm-indicator' \
+            packaging/io.github.IvanVojtko.LogitechRpmIndicator.desktop
+
       - name: Prepare package root
         shell: bash
         run: |
@@ -55,31 +66,13 @@ jobs:
           PKGROOT="pkgroot"
           DIST="dist"
           rm -rf "$PKGROOT" "$DIST"
-          mkdir -p "$PKGROOT/opt/$APP_NAME" \
-                   "$PKGROOT/usr/bin" \
-                   "$PKGROOT/usr/share/doc/$APP_NAME" \
-                   "$DIST"
-
-          # Copy only what you want packaged (explicit list avoids .venv, .git, etc.)
-          cp -a main.py "$PKGROOT/opt/$APP_NAME/"
+          mkdir -p "$PKGROOT/usr/share/doc/$APP_NAME" "$DIST"
 
           [ -f README.md ] && cp -a README.md "$PKGROOT/usr/share/doc/$APP_NAME/" || true
           [ -f LICENSE ] && cp -a LICENSE "$PKGROOT/usr/share/doc/$APP_NAME/" || true
 
-          [ -d games ] && cp -a games "$PKGROOT/opt/$APP_NAME/" || true
-          [ -d wheels ] && cp -a wheels "$PKGROOT/opt/$APP_NAME/" || true
-          [ -d icons ] && cp -a icons "$PKGROOT/opt/$APP_NAME/" || true
-          [ -d scs-plugin ] && cp -a scs-plugin "$PKGROOT/opt/$APP_NAME/" || true
           [ -d scs-plugin ] && cp -a scs-plugin "$PKGROOT/usr/share/doc/$APP_NAME/" || true
-
-          # Runner wrapper (installed on PATH)
-          cat > "$PKGROOT/usr/bin/$APP_NAME" <<EOF
-          #!/bin/sh
-          set -e
-          APP_DIR="/opt/$APP_NAME"
-          exec /usr/bin/python3 "\$APP_DIR/main.py" "\$@"
-          EOF
-          chmod 0755 "$PKGROOT/usr/bin/$APP_NAME"
+          make install DESTDIR="$PWD/$PKGROOT" APPDIR="/opt/$APP_NAME"
 
       - name: Build .deb, .rpm, and Arch package
         shell: bash
@@ -119,6 +112,11 @@ jobs:
             --depends "libadwaita"
           )
 
+          CACHE_HOOKS=(
+            --after-install packaging/update-desktop-caches.sh
+            --after-remove packaging/update-desktop-caches.sh
+          )
+
           # DEB
           fpm -s dir -t deb \
             -n "$APP_NAME" \
@@ -130,6 +128,7 @@ jobs:
             --url "$REPO_URL" \
             --description "$DESC" \
             "${DEB_DEPS[@]}" \
+            "${CACHE_HOOKS[@]}" \
             -C pkgroot .
 
           # RPM
@@ -143,6 +142,7 @@ jobs:
             --url "$REPO_URL" \
             --description "$DESC" \
             "${RPM_DEPS[@]}" \
+            "${CACHE_HOOKS[@]}" \
             -C pkgroot .
 
           # Arch Linux pacman package
@@ -159,12 +159,33 @@ jobs:
             --pacman-optional-depends "python-hid: HID support via pyhidapi bindings" \
             --pacman-optional-depends "python-hidapi: HID support via cython-hidapi bindings" \
             "${ARCH_DEPS[@]}" \
+            "${CACHE_HOOKS[@]}" \
             -C pkgroot .
 
           mkdir -p dist
           mv ./*.deb dist/
           mv ./*.rpm dist/
           mv ./*.pkg.tar.* dist/
+
+      - name: Verify desktop assets in distribution packages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          verify_paths() {
+            local listing="$1"
+            grep -qx 'usr/share/applications/io.github.IvanVojtko.LogitechRpmIndicator.desktop' "$listing"
+            grep -qx 'usr/share/icons/hicolor/256x256/apps/logitech-rpm-indicator.png' "$listing"
+            grep -qx 'usr/share/icons/hicolor/scalable/apps/logitech-rpm-indicator.svg' "$listing"
+          }
+
+          dpkg-deb --contents dist/*.deb | awk '{print $6}' | sed 's|^\./||' > /tmp/deb-files
+          rpm -qlp dist/*.rpm | sed 's|^/||' > /tmp/rpm-files
+          bsdtar -tf dist/*.pkg.tar.* | sed 's|^\./||' > /tmp/arch-files
+
+          verify_paths /tmp/deb-files
+          verify_paths /tmp/rpm-files
+          verify_paths /tmp/arch-files
 
       - name: Build source archives (explicit assets)
         shell: bash

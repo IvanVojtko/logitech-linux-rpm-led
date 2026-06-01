@@ -1,0 +1,4 @@
+#!/bin/sh
+set -e
+
+exec "@PYTHON_EXECUTABLE@" "@APPDIR@/main.py" "$@"

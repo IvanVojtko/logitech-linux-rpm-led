@@ -105,6 +105,36 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### Option C: Install from source on other Linux distributions
+
+The repository includes a distro-neutral `Makefile` for downstream packagers
+and local source installs. Runtime dependencies must still be installed through
+your distribution package manager.
+
+Install under `/usr`:
+
+```bash
+sudo make install
+```
+
+Downstream packaging can stage files without modifying the host system:
+
+```bash
+make install DESTDIR="$pkgdir"
+```
+
+Override standard paths when required by a distribution:
+
+```bash
+make install DESTDIR="$pkgdir" PREFIX=/usr APPDIR=/usr/lib/logitech-rpm-indicator
+```
+
+The install target includes the desktop launcher, scalable SVG icon, `256x256`
+PNG fallback, application sources, game artwork, and any ETS2 plugin binaries
+that have already been built. Staged installs skip desktop cache refreshes;
+package managers should run the provided `packaging/update-desktop-caches.sh`
+hook after installation and removal.
+
 ---
 
 ## Usage
