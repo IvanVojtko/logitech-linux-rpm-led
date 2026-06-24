@@ -149,7 +149,7 @@ class TestF1PlayerCarSelection(unittest.TestCase):
                 "F1 2019",
                 F12019(),
                 "<HBBBBQfIB",
-                "<HfffBbHBB4H4H4H4H4f4B",
+                "<HfffBbHBB4H4H4HH4f4B",
                 F12019_PACKET_ID_POS,
                 F12019_PLAYER_CAR_INDEX_POS,
             ),
@@ -157,7 +157,7 @@ class TestF1PlayerCarSelection(unittest.TestCase):
                 "F1 2020",
                 F12020(),
                 "<HBBBBQfIBB",
-                "<HfffBbHBB4H4H4H4H4f4B",
+                "<HfffBbHBB4H4B4BH4f4B",
                 F12020_PACKET_ID_POS,
                 F12020_PLAYER_CAR_INDEX_POS,
             ),
@@ -194,7 +194,7 @@ class TestF1PlayerCarSelection(unittest.TestCase):
     def test_invalid_player_index_returns_previous_percent(self) -> None:
         packet = _build_f1_packet(
             header_fmt="<HBBBBQfIB",
-            car_fmt="<HfffBbHBB4H4H4H4H4f4B",
+            car_fmt="<HfffBbHBB4H4H4HH4f4B",
             packet_id_pos=F12019_PACKET_ID_POS,
             player_car_index_pos=F12019_PLAYER_CAR_INDEX_POS,
             player_car_index=22,
