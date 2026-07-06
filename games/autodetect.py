@@ -69,6 +69,14 @@ GAME_SIGNATURES = (
             "euro truck simulator 2",
         ),
     },
+    {
+        "key": "wreckfest_2",
+        "steam_app_ids": {"1203190"},
+        "process_tokens": (
+            "Wreckfest2.exe",
+            "Wreckfest 2",
+        ),
+    },
 )
 
 

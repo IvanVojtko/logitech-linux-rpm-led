@@ -36,6 +36,7 @@ If you like my work, consider supporting me:
 - **SMS Madness Engine games** (e.g., **Automobilista 2**, **Project CARS**, **Project CARS 2**)
 - **Assetto Corsa** (manual max RPM input in app)
 - **Euro Truck Simulator 2** (requires the included SCS telemetry plugin)
+- **Wreckfest 2**
 
 ---
 
@@ -269,6 +270,24 @@ Copy `scs-plugin/logitech_rpm_telemetry.dll` into:
 
 On a system with both compilers installed, `make -C scs-plugin
 SCS_SDK_DIR=/tmp/scs_sdk_1_14` builds both files.
+
+---
+
+### Wreckfest 2
+
+1. Edit the telemetry configuration file inside the Proton prefix:
+
+```text
+~/.local/share/Steam/steamapps/compatdata/1203190/pfx/drive_c/users/steamuser/My Documents/My Games/Wreckfest 2/1234512345123451234/savegame/telemetry/config.json
+```
+
+> Note: The `compatdata/<id>` path may differ depending on your Steam library location and Proton setup.
+
+2. Update these values:
+
+- `"enabled": 1`
+- **IP Address**: `127.0.0.1`
+- **Port**: `23123`
 
 ---
 

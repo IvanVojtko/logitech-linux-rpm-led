@@ -21,6 +21,7 @@ from games.automobilista_2 import Automobilista2
 from games.assetto_corsa import AssettoCorsa
 from games.euro_truck_simulator_2 import EuroTruckSimulator2
 from games.ets2_plugin_installer import install_ets2_plugins
+from games.wreckfest_2 import Wreckfest2
 from games.autodetect import detect_running_game
 from wheels.base import BaseWheel
 from wheels.detect import find_wheel
@@ -39,6 +40,7 @@ F1_2023 =           6
 FORZA_HORIZON_5 =   7
 FORZA_HORIZON_6 =   8
 EURO_TRUCK_SIMULATOR_2 = 9
+WRECKFEST_2 =       10
 
 DEFAULT_ASSETTO_MAX_RPM = 9000
 MIN_ASSETTO_MAX_RPM = 1000
@@ -61,6 +63,7 @@ GAME_KEY_TO_CHOICE = {
     "forza_horizon_5": FORZA_HORIZON_5,
     "forza_horizon_6": FORZA_HORIZON_6,
     "euro_truck_simulator_2": EURO_TRUCK_SIMULATOR_2,
+    "wreckfest_2": WRECKFEST_2,
 }
 
 
@@ -229,6 +232,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="Forza Horizon 5", image_path=icon_path("forza-horizon-5.png")))
         self.model_widget.append(Widget(name="Forza Horizon 6", image_path=icon_path("forza-horizon-5.png")))
         self.model_widget.append(Widget(name="Euro Truck Simulator 2", image_path=icon_path("ams-2.png")))
+        self.model_widget.append(Widget(name="Wreckfest 2", image_path=icon_path("wreckfest-2.png")))
         self.combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
         self.combo.set_hexpand(True)
         self.combo.set_enable_search(True)
@@ -620,6 +624,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             return AssettoCorsa(max_rpm=self.assetto_max_rpm)
         if choice == EURO_TRUCK_SIMULATOR_2:
             return EuroTruckSimulator2()
+        if choice == WRECKFEST_2:
+            return Wreckfest2()
         return None
 
     def _start_telemetry_for_choice(self, choice):
