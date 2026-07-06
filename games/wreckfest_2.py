@@ -1,15 +1,9 @@
 import socket
 import struct
 
-import time
-import struct
-
-MAX_POS = 63
-CURR_POS = 37
+CURR_POS = 435
+MAX_POS = 439
 BUFFER_SIZE = 2048
-CAR_TELEMETRY = struct.Struct('<66f')
-CAR_TELEMETRY_SIZE = CAR_TELEMETRY.size
-
 
 class Wreckfest2:
     def __init__(self):
@@ -39,18 +33,22 @@ class Wreckfest2:
 
     def get_rpm_percent(self, data, percent) -> int:
         signature = int.from_bytes(data[0:4], byteorder='little', signed=False)
-        packetType = int.from_bytes(data[4:5], byteorder='little', signed=False)
+        packetType = data[4]
         if signature != 1869769584:
             print ("ERROR: Invalid packet signature")
             return percent
         
         if packetType != 0:
             return percent
+        
+        if len(data) < MAX_POS + 4:
+            print ("ERROR: Packet was too small, cannot extract RPM")
+            return percent
 
-        self.rpm = int.from_bytes(data[435:439], byteorder='little', signed=True)# S32
-        self.rpmMax = int.from_bytes(data[439:443], byteorder='little', signed=True)# S32
+        self.rpm = int.from_bytes(data[CURR_POS:CURR_POS + 4], byteorder='little', signed=True)# S32
+        self.rpmMax = int.from_bytes(data[MAX_POS:MAX_POS + 4], byteorder='little', signed=True)# S32
         # print("rpm: ", self.rpm)
         # print("rpmMax: ", self.rpmMax)
-        # print("rpm ratio: ", self.calc_rpm_percent())
+        # print("rpm %: ", self.calc_rpm_percent())
 
         return self.calc_rpm_percent()
