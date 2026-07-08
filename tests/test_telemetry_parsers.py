@@ -22,10 +22,10 @@ from games.f12023 import PACKET_ID_POS as F12023_PACKET_ID_POS
 from games.f12023 import PLAYER_CAR_INDEX_POS as F12023_PLAYER_CAR_INDEX_POS
 from games.f12023 import F12023
 from games.forza_horizon import ForzaHorizon5, ForzaHorizon6
-from games.euro_truck_simulator_2 import PACKET_MAGIC as ETS2_PACKET_MAGIC
-from games.euro_truck_simulator_2 import PACKET_STRUCT as ETS2_PACKET_STRUCT
-from games.euro_truck_simulator_2 import PACKET_VERSION as ETS2_PACKET_VERSION
-from games.euro_truck_simulator_2 import EuroTruckSimulator2
+from games.truck_simulator import PACKET_MAGIC as ETS2_PACKET_MAGIC
+from games.truck_simulator import PACKET_STRUCT as ETS2_PACKET_STRUCT
+from games.truck_simulator import PACKET_VERSION as ETS2_PACKET_VERSION
+from games.truck_simulator import TruckSimulator
 
 
 def _field_count(fmt: str) -> int:
@@ -122,22 +122,22 @@ class TestAssettoCorsaParser(unittest.TestCase):
 
 class TestEuroTruckSimulator2Parser(unittest.TestCase):
     def test_valid_packet_computes_percent(self) -> None:
-        game = EuroTruckSimulator2()
+        game = TruckSimulator()
         packet = ETS2_PACKET_STRUCT.pack(ETS2_PACKET_MAGIC, ETS2_PACKET_VERSION, 1, 0, 1050.0, 2100.0)
         self.assertEqual(game.get_rpm_percent(packet, 7), 50)
 
     def test_paused_packet_returns_zero(self) -> None:
-        game = EuroTruckSimulator2()
+        game = TruckSimulator()
         packet = ETS2_PACKET_STRUCT.pack(ETS2_PACKET_MAGIC, ETS2_PACKET_VERSION, 0, 0, 1050.0, 2100.0)
         self.assertEqual(game.get_rpm_percent(packet, 73), 0)
 
     def test_invalid_packet_returns_previous_percent(self) -> None:
-        game = EuroTruckSimulator2()
+        game = TruckSimulator()
         packet = ETS2_PACKET_STRUCT.pack(b"BAD!", ETS2_PACKET_VERSION, 1, 0, 1050.0, 2100.0)
         self.assertEqual(game.get_rpm_percent(packet, 41), 41)
 
     def test_missing_max_rpm_returns_previous_percent(self) -> None:
-        game = EuroTruckSimulator2()
+        game = TruckSimulator()
         packet = ETS2_PACKET_STRUCT.pack(ETS2_PACKET_MAGIC, ETS2_PACKET_VERSION, 1, 0, 1050.0, 0.0)
         self.assertEqual(game.get_rpm_percent(packet, 23), 23)
 

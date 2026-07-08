@@ -2,15 +2,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from games.ets2_plugin_installer import (
+from games.ts_plugin_installer import (
     discover_steam_libraries,
-    find_ets2_install_dirs,
+    find_ts_install_dirs,
     find_plugin_binaries,
     install_ets2_plugins,
+    install_ats_plugins,
 )
 
 
-class TestEts2PluginInstaller(unittest.TestCase):
+class TestTsPluginInstaller(unittest.TestCase):
     def test_discovers_libraryfolders_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "Steam"
@@ -31,7 +32,17 @@ class TestEts2PluginInstaller(unittest.TestCase):
             steamapps.mkdir(parents=True)
             (steamapps / "appmanifest_227300.acf").write_text("", encoding="utf-8")
 
-            self.assertEqual(find_ets2_install_dirs([root]), [install_dir])
+            self.assertEqual(find_ts_install_dirs("227300", "Euro Truck Simulator 2", [root]), [install_dir])
+
+    def test_finds_ats_install_dir_from_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "Steam"
+            steamapps = root / "steamapps"
+            install_dir = steamapps / "common" / "American Truck Simulator"
+            steamapps.mkdir(parents=True)
+            (steamapps / "appmanifest_270880.acf").write_text("", encoding="utf-8")
+
+            self.assertEqual(find_ts_install_dirs("270880", "American Truck Simulator", [root]), [install_dir])
 
     def test_finds_available_plugin_binaries(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -43,7 +54,7 @@ class TestEts2PluginInstaller(unittest.TestCase):
 
             self.assertEqual(find_plugin_binaries(app_dir), [("linux_x64", linux_plugin)])
 
-    def test_installs_available_plugins(self) -> None:
+    def test_installs_ets2_available_plugins(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "Steam"
             steamapps = root / "steamapps"
@@ -60,6 +71,30 @@ class TestEts2PluginInstaller(unittest.TestCase):
             windows_plugin.write_bytes(b"windows")
 
             installed_paths = install_ets2_plugins(steam_roots=[root], app_dir=app_dir)
+
+            expected_linux = install_dir / "bin/linux_x64/plugins/logitech_rpm_telemetry.so"
+            expected_windows = install_dir / "bin/win_x64/plugins/logitech_rpm_telemetry.dll"
+            self.assertEqual(installed_paths, [expected_linux, expected_windows])
+            self.assertEqual(expected_linux.read_bytes(), b"linux")
+            self.assertEqual(expected_windows.read_bytes(), b"windows")
+
+    def test_installs_ats_available_plugins(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "Steam"
+            steamapps = root / "steamapps"
+            install_dir = steamapps / "common" / "American Truck Simulator"
+            steamapps.mkdir(parents=True)
+            install_dir.mkdir(parents=True)
+
+            app_dir = Path(temp_dir) / "app"
+            plugin_dir = app_dir / "scs-plugin"
+            plugin_dir.mkdir(parents=True)
+            linux_plugin = plugin_dir / "logitech_rpm_telemetry.so"
+            windows_plugin = plugin_dir / "logitech_rpm_telemetry.dll"
+            linux_plugin.write_bytes(b"linux")
+            windows_plugin.write_bytes(b"windows")
+
+            installed_paths = install_ats_plugins(steam_roots=[root], app_dir=app_dir)
 
             expected_linux = install_dir / "bin/linux_x64/plugins/logitech_rpm_telemetry.so"
             expected_windows = install_dir / "bin/win_x64/plugins/logitech_rpm_telemetry.dll"

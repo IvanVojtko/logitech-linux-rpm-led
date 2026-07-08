@@ -19,8 +19,9 @@ from games.f12023 import F12023
 from games.dirt_rally_2_0 import DirtRally2
 from games.automobilista_2 import Automobilista2
 from games.assetto_corsa import AssettoCorsa
-from games.euro_truck_simulator_2 import EuroTruckSimulator2
-from games.ets2_plugin_installer import install_ets2_plugins
+from games.truck_simulator import TruckSimulator
+from games.ts_plugin_installer import install_ets2_plugins
+from games.ts_plugin_installer import install_ats_plugins
 from games.wreckfest_2 import Wreckfest2
 from games.autodetect import detect_running_game
 from wheels.base import BaseWheel
@@ -39,7 +40,7 @@ F1_2022 =           5
 F1_2023 =           6
 FORZA_HORIZON_5 =   7
 FORZA_HORIZON_6 =   8
-EURO_TRUCK_SIMULATOR_2 = 9
+TRUCK_SIMULATOR =   9
 WRECKFEST_2 =       10
 
 DEFAULT_ASSETTO_MAX_RPM = 9000
@@ -62,7 +63,7 @@ GAME_KEY_TO_CHOICE = {
     "f1_2023": F1_2023,
     "forza_horizon_5": FORZA_HORIZON_5,
     "forza_horizon_6": FORZA_HORIZON_6,
-    "euro_truck_simulator_2": EURO_TRUCK_SIMULATOR_2,
+    "truck_simulator": TRUCK_SIMULATOR,
     "wreckfest_2": WRECKFEST_2,
 }
 
@@ -223,7 +224,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         # Create a dropdown (Gtk.ComboBoxText)
         self.model_widget = Gio.ListStore(item_type=Widget)
         self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path=icon_path("ams-2.png")))
-        self.model_widget.append(Widget(name="Assetto Corsa", image_path=icon_path("asseto.png")))
+        self.model_widget.append(Widget(name="Assetto Corsa", image_path=icon_path("assetto.png")))
         self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path=icon_path("dirt-rally-2-0.png")))
         self.model_widget.append(Widget(name="F1 2019", image_path=icon_path("f1-2019.png")))
         self.model_widget.append(Widget(name="F1 2020", image_path=icon_path("f1-2020.png")))
@@ -231,7 +232,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="F1 2023", image_path=icon_path("f1-2023.png")))
         self.model_widget.append(Widget(name="Forza Horizon 5", image_path=icon_path("forza-horizon-5.png")))
         self.model_widget.append(Widget(name="Forza Horizon 6", image_path=icon_path("forza-horizon-5.png")))
-        self.model_widget.append(Widget(name="Euro Truck Simulator 2", image_path=icon_path("ams-2.png")))
+        self.model_widget.append(Widget(name="Euro Truck Simulator 2 / American Truck Simulator",
+            image_path=icon_path("euro-truck-simulator-2.png")))
         self.model_widget.append(Widget(name="Wreckfest 2", image_path=icon_path("wreckfest-2.png")))
         self.combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
         self.combo.set_hexpand(True)
@@ -284,17 +286,32 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.assetto_max_rpm_row.set_visible(False)
         game_panel.append(self.assetto_max_rpm_row)
 
-        self.ets2_plugin_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.ts_plugin_boxes = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        self.ts_plugin_boxes.set_homogeneous(True)
+        self.ts_plugin_boxes.set_visible(False)
+        game_panel.append(self.ts_plugin_boxes)
+
+        ets2_plugin_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.ets2_plugin_button = Gtk.Button(label="Install ETS2 Telemetry Plugin")
         self.ets2_plugin_button.add_css_class("action-button")
         self.ets2_plugin_button.connect("clicked", self._on_ets2_plugin_install_clicked)
         self.ets2_plugin_status = Gtk.Label()
         self.ets2_plugin_status.set_xalign(0)
         self.ets2_plugin_status.set_wrap(True)
-        self.ets2_plugin_box.append(self.ets2_plugin_button)
-        self.ets2_plugin_box.append(self.ets2_plugin_status)
-        self.ets2_plugin_box.set_visible(False)
-        game_panel.append(self.ets2_plugin_box)
+        ets2_plugin_box.append(self.ets2_plugin_button)
+        ets2_plugin_box.append(self.ets2_plugin_status)
+        self.ts_plugin_boxes.append(ets2_plugin_box)
+
+        ats_plugin_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.ats_plugin_button = Gtk.Button(label="Install ATS Telemetry Plugin")
+        self.ats_plugin_button.add_css_class("action-button")
+        self.ats_plugin_button.connect("clicked", self._on_ats_plugin_install_clicked)
+        self.ats_plugin_status = Gtk.Label()
+        self.ats_plugin_status.set_xalign(0)
+        self.ats_plugin_status.set_wrap(True)
+        ats_plugin_box.append(self.ats_plugin_button)
+        ats_plugin_box.append(self.ats_plugin_status)
+        self.ts_plugin_boxes.append(ats_plugin_box)
 
         self.wheel = find_wheel()
         if not self.wheel:
@@ -501,7 +518,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
     def _on_game_selected_changed(self, *_args):
         selected_choice = self.combo.get_selected()
         self.assetto_max_rpm_row.set_visible(selected_choice == ASSETTO_CORSA)
-        self.ets2_plugin_box.set_visible(selected_choice == EURO_TRUCK_SIMULATOR_2)
+        self.ts_plugin_boxes.set_visible(selected_choice == TRUCK_SIMULATOR)
         if self._is_valid_choice(selected_choice):
             self.last_selected_game_choice = int(selected_choice)
             if self.remember_last_selected_game:
@@ -512,6 +529,12 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.ets2_plugin_status.remove_css_class("warning-label")
         self.ets2_plugin_status.add_css_class(css_class)
         self.ets2_plugin_status.set_text(message)
+
+    def _set_ats_plugin_status(self, message, css_class):
+        self.ats_plugin_status.remove_css_class("success-label")
+        self.ats_plugin_status.remove_css_class("warning-label")
+        self.ats_plugin_status.add_css_class(css_class)
+        self.ats_plugin_status.set_text(message)
 
     def _on_ets2_plugin_install_clicked(self, _button):
         self.ets2_plugin_button.set_sensitive(False)
@@ -528,6 +551,22 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self._set_ets2_plugin_status(str(exc), "warning-label")
         finally:
             self.ets2_plugin_button.set_sensitive(True)
+
+    def _on_ats_plugin_install_clicked(self, _button):
+        self.ats_plugin_button.set_sensitive(False)
+        try:
+            installed_paths = install_ats_plugins(app_dir=Path(__file__).resolve().parent)
+            if not installed_paths:
+                self._set_ats_plugin_status("No ATS plugin files were installed.", "warning-label")
+                return
+            self._set_ats_plugin_status(
+                f"Installed {len(installed_paths)} ATS plugin file(s). Restart ATS if it is already running.",
+                "success-label",
+            )
+        except Exception as exc:
+            self._set_ats_plugin_status(str(exc), "warning-label")
+        finally:
+            self.ats_plugin_button.set_sensitive(True)
 
     @staticmethod
     def _percent_to_led_bits(percent):
@@ -622,8 +661,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.assetto_max_rpm = int(self.assetto_max_rpm_input.get_value())
             self._save_settings()
             return AssettoCorsa(max_rpm=self.assetto_max_rpm)
-        if choice == EURO_TRUCK_SIMULATOR_2:
-            return EuroTruckSimulator2()
+        if choice == TRUCK_SIMULATOR:
+            return TruckSimulator()
         if choice == WRECKFEST_2:
             return Wreckfest2()
         return None

@@ -35,7 +35,7 @@ If you like my work, consider supporting me:
 - **DiRT Rally 2.0**
 - **SMS Madness Engine games** (e.g., **Automobilista 2**, **Project CARS**, **Project CARS 2**)
 - **Assetto Corsa** (manual max RPM input in app)
-- **Euro Truck Simulator 2** (requires the included SCS telemetry plugin)
+- **Euro Truck Simulator 2 / American Truck Simulator** (requires the included SCS telemetry plugin)
 - **Wreckfest 2**
 
 ## Supported Wheels
@@ -233,7 +233,7 @@ hook after installation and removal.
 
 ---
 
-### Euro Truck Simulator 2
+### Euro Truck Simulator 2 / American Truck Simulator
 
 ETS2 does not expose RPM telemetry directly over UDP. It loads native SCS SDK
 plugins from the game directory, so this app includes a small plugin in

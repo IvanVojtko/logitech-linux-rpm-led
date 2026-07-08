@@ -9,7 +9,7 @@ PACKET_VERSION = 1
 PACKET_STRUCT = struct.Struct("<4sBBHff")
 
 
-class EuroTruckSimulator2:
+class TruckSimulator:
     def __init__(self):
         self.ip = "127.0.0.1"
         self.port = PORT
