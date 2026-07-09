@@ -22,7 +22,7 @@ If you like my work, consider supporting me:
 - Auto-reconnect telemetry loop (recovers after game/launcher transitions)
 - Optional auto-detect mode: switches selected game profile from running Steam game/process
 - In auto-detect mode, telemetry stops automatically when no supported game is running
-- Assetto Corsa max RPM is persisted in `~/.config/logitech-rpm-indicator/settings.ini`
+- Max RPM are persisted in `~/.config/logitech-rpm-indicator/settings.ini`
 - Optional "Remember last selected game" restores the dropdown selection on app launch
 - Shift-light RPM thresholds are user-configurable in UI and persisted in settings
 
@@ -35,6 +35,7 @@ If you like my work, consider supporting me:
 - **DiRT Rally 2.0**
 - **SMS Madness Engine games** (e.g., **Automobilista 2**, **Project CARS**, **Project CARS 2**)
 - **Assetto Corsa** (manual max RPM input in app)
+- **Assetto Corsa Competizione**
 - **BeamNG.drive** (manual max RPM input in app)
 - **Euro Truck Simulator 2 / American Truck Simulator** (requires the included SCS telemetry plugin)
 - **Live for Speed** (manual max RPM input in app)
@@ -232,6 +233,20 @@ hook after installation and removal.
 2. In this app, select **Assetto Corsa** from the dropdown.
 3. Set **Assetto Max RPM** in the input field to match your current car.
 4. The value is saved automatically and restored on next launch.
+
+---
+
+### Assetto Corsa Competizione
+
+You need to install the "wrapper" bridge between the "Windows" ACC shared
+memory to a Linux one (/dev/shm):
+
+1. In the ACC game folder, rename the file "acc.exe" to "_acc.exe"
+2. Download <https://github.com/gotzl/pyacc/blob/main/linux/acc_wrapper.exe>
+3. Move the downloaded file to the installation folder and rename
+   it to "acc.exe"
+4. Start the game as usual. A window should appear in addition to the game,
+   with the text "Done! Waiting for ACC to stop." at the end.
 
 ---
 
