@@ -30,6 +30,7 @@ def open_device(vendor_id: int, product_id: int) -> Any:
         return hid.Device(vendor_id, product_id)
 
     if hasattr(hid, "device"):
+        print("Warning: Falling back to alternative HID interface, this may not work for your wheel")
         device = hid.device()
         device.open(vendor_id, product_id)
         return device

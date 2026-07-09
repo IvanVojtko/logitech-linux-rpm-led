@@ -38,6 +38,16 @@ If you like my work, consider supporting me:
 - **Euro Truck Simulator 2** (requires the included SCS telemetry plugin)
 - **Wreckfest 2**
 
+## Supported Wheels
+
+Only the following Logitech wheels are supported at the moment.
+
+- **G27**
+- **G29**
+- **G923, Xbox and Playstation variants**
+- **G Pro, Xbox and Playstation variants** <ins>This is untested!</ins> Please open an issue if you encounter problems
+- **RS50** <ins>This is untested!</ins> Please open an issue if you encounter problems.
+
 ---
 
 ## Installation

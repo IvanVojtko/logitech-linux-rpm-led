@@ -51,5 +51,5 @@ body:
     id: wheel
     attributes:
       label: Wheel model, if relevant
-      placeholder: Logitech G29, G920, G923, etc.
+      placeholder: Logitech G27, G29, G923, etc.
 
