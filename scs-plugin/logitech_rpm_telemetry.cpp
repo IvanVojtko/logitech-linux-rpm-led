@@ -207,7 +207,7 @@ SCSAPI_RESULT scs_telemetry_init(
 	game_log = version_params->common.log;
 
 	if (std::strcmp(version_params->common.game_id, SCS_GAME_ID_EUT2) != 0) {
-		log_message(SCS_LOG_TYPE_warning, "Logitech RPM telemetry plugin loaded by a non-ETS2 SCS game.");
+		log_message(SCS_LOG_TYPE_warning, "Logitech RPM telemetry plugin loaded by a non-ETS2/ATS SCS game.");
 	}
 
 	if (!initialize_udp()) {

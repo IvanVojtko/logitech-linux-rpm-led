@@ -4,14 +4,14 @@ from games.autodetect import detect_game_from_processes
 
 
 class TestGameAutoDetect(unittest.TestCase):
-    def test_detects_by_steam_app_id(self) -> None:
+    def test_detect_assetto_corsa_by_steam_app_id(self) -> None:
         processes = [
             {"name": "wine64", "cmdline": "wine64-preloader", "steam_app_id": ""},
             {"name": "wineserver", "cmdline": "", "steam_app_id": "244210"},
         ]
         self.assertEqual(detect_game_from_processes(processes), "assetto_corsa")
 
-    def test_detects_by_process_token(self) -> None:
+    def test_detect_f1_23_by_process_token(self) -> None:
         processes = [
             {
                 "name": "wine64-preloader",
@@ -24,14 +24,28 @@ class TestGameAutoDetect(unittest.TestCase):
     def test_detects_ets2_by_steam_app_id(self) -> None:
         processes = [
             {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
-            {"name": "eurotrucks2.exe", "cmdline": "", "steam_app_id": "227300"},
+            {"name": "UNKNOWN NAME", "cmdline": "", "steam_app_id": "227300"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "truck_simulator")
+
+    def test_detects_ets2_by_name(self) -> None:
+        processes = [
+            {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
+            {"name": "euro truck simulator 2", "cmdline": "", "steam_app_id": "000000"},
         ]
         self.assertEqual(detect_game_from_processes(processes), "truck_simulator")
 
     def test_detects_ats_by_steam_app_id(self) -> None:
         processes = [
             {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
-            {"name": "amtrucks.exe", "cmdline": "", "steam_app_id": "270880"},
+            {"name": "wineserver", "cmdline": "", "steam_app_id": "270880"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "truck_simulator")
+
+    def test_detects_ats_by_name(self) -> None:
+        processes = [
+            {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
+            {"name": "american truck simulator", "cmdline": "", "steam_app_id": "000000"},
         ]
         self.assertEqual(detect_game_from_processes(processes), "truck_simulator")
 
@@ -50,6 +64,33 @@ class TestGameAutoDetect(unittest.TestCase):
             }
         ]
         self.assertEqual(detect_game_from_processes(processes), "forza_horizon_6")
+
+    def test_detects_forza_horizon_6_by_name(self) -> None:
+        processes = [
+            {"name": "forzahorizon6.exe", "cmdline": "", "steam_app_id": "000000000"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "forza_horizon_6")
+
+    def test_detect_project_cars_by_steam_app_id(self) -> None:
+        processes = [
+            {"name": "wine64", "cmdline": "wine64-preloader", "steam_app_id": ""},
+            {"name": "wineserver", "cmdline": "", "steam_app_id": "234630"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "ams_2")
+
+    def test_detect_project_cars_by_name(self) -> None:
+        processes = [
+            {"name": "wine64", "cmdline": "wine64-preloader", "steam_app_id": ""},
+            {"name": "pcars64.exe", "cmdline": "", "steam_app_id": "00000"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "ams_2")
+
+    def test_detects_wreckfest_2_by_steam_app_id(self) -> None:
+        processes = [
+            {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
+            {"name": "wineserver", "cmdline": "", "steam_app_id": "1203190"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "wreckfest_2")
 
     def test_detects_wreckfest_2_by_name(self) -> None:
         processes = [

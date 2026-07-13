@@ -62,7 +62,7 @@ GAME_SIGNATURES = (
     },
     {
         "key": "truck_simulator",
-        "steam_app_ids": {"227300, 270880"},
+        "steam_app_ids": {"227300", "270880"},
         "process_tokens": (
             "eurotrucks2.exe",
             "eurotrucks2",

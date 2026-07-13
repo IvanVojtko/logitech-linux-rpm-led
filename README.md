@@ -235,16 +235,17 @@ hook after installation and removal.
 
 ### Euro Truck Simulator 2 / American Truck Simulator
 
-ETS2 does not expose RPM telemetry directly over UDP. It loads native SCS SDK
-plugins from the game directory, so this app includes a small plugin in
+ETS2/ATS do not expose RPM telemetry directly over UDP. They loads native SCS
+SDK plugins from the game directory, so this app includes a small plugin in
 `scs-plugin/`. The plugin reads `truck.engine.rpm` and the truck `rpm.limit`
 configuration value from the SCS Telemetry SDK, then forwards a local UDP packet
 to this Python app on `127.0.0.1:5607`.
 
 If you installed this app from a release package, select **Euro Truck Simulator
-2** and click **Install ETS2 Telemetry Plugin**. The app searches your Steam
-libraries and copies the bundled Linux/Windows plugin files into the ETS2
-`plugins` directories.
+2 / American Truck Simulator** and click **Install ETS2 Telemetry Plugin** or
+**Install ATS Telemetry Plugin**. The app searches your Steam libraries and
+copies the bundled Linux/Windows plugin files into the ETS2/ATS `plugins`
+directories.
 
 If you run from source, build the plugin first:
 
@@ -256,16 +257,16 @@ unzip /tmp/scs_sdk_1_14.zip -d /tmp/scs_sdk_1_14
 make -C scs-plugin linux SCS_SDK_DIR=/tmp/scs_sdk_1_14
 ```
 
-Copy `scs-plugin/logitech_rpm_telemetry.so` into the ETS2 plugin directory:
+Copy `scs-plugin/logitech_rpm_telemetry.so` into the ETS2/ATS plugin directory:
 
 ```text
 <SteamLibrary>/steamapps/common/Euro Truck Simulator 2/bin/linux_x64/plugins/
 ```
 
-Create the `plugins` directory if it does not exist, then start ETS2 and select
-**Euro Truck Simulator 2** in this app.
+Create the `plugins` directory if it does not exist, then start ETS2/ATS and
+select **Euro Truck Simulator 2 / American Truck Simulator** in this app.
 
-For Proton/Windows ETS2, the same approach needs a Windows DLL build of the
+For Proton/Windows ETS2/ATS, the same approach needs a Windows DLL build of the
 plugin. Install a MinGW-w64 cross compiler, then run:
 
 ```bash
@@ -276,6 +277,12 @@ Copy `scs-plugin/logitech_rpm_telemetry.dll` into:
 
 ```text
 <SteamLibrary>/steamapps/common/Euro Truck Simulator 2/bin/win_x64/plugins/
+```
+
+or
+
+```text
+<SteamLibrary>/steamapps/common/American Truck Simulator/bin/win_x64/plugins/
 ```
 
 On a system with both compilers installed, `make -C scs-plugin

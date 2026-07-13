@@ -39,6 +39,7 @@ class Wreckfest2:
             return percent
         
         if packetType != 0:
+            # print ("Not main packet, ignoring")
             return percent
         
         if len(data) < MAX_POS + 4:
