@@ -44,6 +44,13 @@ class TestGameAutoDetect(unittest.TestCase):
         ]
         self.assertEqual(detect_game_from_processes(processes), "forza_horizon_6")
 
+    def test_detects_wreckfest_2_by_name(self) -> None:
+        processes = [
+            {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
+            {"name": "Wreckfest2.exe", "cmdline": "", "steam_app_id": "000000"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "wreckfest_2")
+
     def test_returns_none_when_no_match(self) -> None:
         processes = [
             {"name": "steam", "cmdline": "steamwebhelper", "steam_app_id": ""},
