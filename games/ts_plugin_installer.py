@@ -5,6 +5,8 @@ from pathlib import Path
 
 ETS2_APP_ID = "227300"
 ETS2_DIR_NAME = "Euro Truck Simulator 2"
+ATS_APP_ID = "270880"
+ATS_DIR_NAME = "American Truck Simulator"
 PLUGIN_DIR_NAME = "scs-plugin"
 PLUGIN_FILENAMES = (
     ("linux_x64", "logitech_rpm_telemetry.so"),
@@ -54,13 +56,13 @@ def discover_steam_libraries(steam_roots=None):
     return libraries
 
 
-def find_ets2_install_dirs(steam_roots=None):
+def find_ts_install_dirs(app_id, dir_name, steam_roots=None):
     install_dirs = []
     seen = set()
     for library in discover_steam_libraries(steam_roots):
         steamapps = library / "steamapps"
-        manifest = steamapps / f"appmanifest_{ETS2_APP_ID}.acf"
-        install_dir = steamapps / "common" / ETS2_DIR_NAME
+        manifest = steamapps / f"appmanifest_{app_id}.acf"
+        install_dir = steamapps / "common" / dir_name
         if not manifest.exists() and not install_dir.exists():
             continue
         key = str(install_dir)
@@ -81,14 +83,14 @@ def find_plugin_binaries(app_dir=None):
     return binaries
 
 
-def install_ets2_plugins(steam_roots=None, app_dir=None):
-    install_dirs = find_ets2_install_dirs(steam_roots)
+def install_ts_plugins(app_id, dir_name, steam_roots=None, app_dir=None):
+    install_dirs = find_ts_install_dirs(app_id, dir_name, steam_roots)
     if not install_dirs:
-        raise FileNotFoundError("Euro Truck Simulator 2 installation was not found in Steam libraries.")
+        raise FileNotFoundError(dir_name + " installation was not found in Steam libraries.")
 
     plugin_binaries = find_plugin_binaries(app_dir)
     if not plugin_binaries:
-        raise FileNotFoundError("No built ETS2 plugin binaries were found in scs-plugin/.")
+        raise FileNotFoundError("No built " + dir_name + " plugin binaries were found in scs-plugin/.")
 
     installed_paths = []
     for install_dir in install_dirs:
@@ -100,3 +102,11 @@ def install_ets2_plugins(steam_roots=None, app_dir=None):
             installed_paths.append(destination)
 
     return installed_paths
+
+
+def install_ets2_plugins(steam_roots=None, app_dir=None):
+    return install_ts_plugins(ETS2_APP_ID, ETS2_DIR_NAME, steam_roots, app_dir)
+
+
+def install_ats_plugins(steam_roots=None, app_dir=None):
+    return install_ts_plugins(ATS_APP_ID, ATS_DIR_NAME, steam_roots, app_dir)

@@ -45,7 +45,7 @@ jobs:
           sudo apt-get install -y ruby ruby-dev build-essential rpm zip unzip libarchive-tools zstd g++-mingw-w64-x86-64
           sudo gem install --no-document fpm
 
-      - name: Build ETS2 telemetry plugins
+      - name: Build ETS2/ATS telemetry plugins
         shell: bash
         run: |
           set -euo pipefail
