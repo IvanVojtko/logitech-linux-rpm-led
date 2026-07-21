@@ -19,6 +19,7 @@ from games.f12023 import F12023
 from games.dirt_rally_2_0 import DirtRally2
 from games.automobilista_2 import Automobilista2
 from games.assetto_corsa import AssettoCorsa
+from games.outgauge import OutGauge
 from games.truck_simulator import TruckSimulator
 from games.ts_plugin_installer import install_ets2_plugins
 from games.ts_plugin_installer import install_ats_plugins
@@ -33,19 +34,23 @@ APPLICATION_ID = "io.github.IvanVojtko.LogitechRpmIndicator"
 
 AMS_2 =             0
 ASSETTO_CORSA =     1
-DIRT_RALLY_2_0 =    2
-F1_2019 =           3
-F1_2020 =           4
-F1_2022 =           5
-F1_2023 =           6
-FORZA_HORIZON_5 =   7
-FORZA_HORIZON_6 =   8
-TRUCK_SIMULATOR =   9
-WRECKFEST_2 =       10
+BEAMNG =            2
+DIRT_RALLY_2_0 =    3
+F1_2019 =           4
+F1_2020 =           5
+F1_2022 =           6
+F1_2023 =           7
+FORZA_HORIZON_5 =   8
+FORZA_HORIZON_6 =   9
+LIVE_FOR_SPEED =    10
+TRUCK_SIMULATOR =   11
+WRECKFEST_2 =       12
 
 DEFAULT_ASSETTO_MAX_RPM = 9000
-MIN_ASSETTO_MAX_RPM = 1000
-MAX_ASSETTO_MAX_RPM = 20000
+DEFAULT_BEAMNG_MAX_RPM = 6200
+DEFAULT_LIVE_FOR_SPEED_MAX_RPM = 8000
+MIN_MAX_RPM = 1000
+MAX_MAX_RPM = 20000
 RECONNECT_DELAY_SECONDS = 1.0
 RECONNECT_INACTIVITY_SECONDS = 3.0
 AUTO_DETECT_INTERVAL_SECONDS = 1.0
@@ -56,6 +61,7 @@ SHIFT_LIGHT_THRESHOLD_COUNT = 5
 GAME_KEY_TO_CHOICE = {
     "ams_2": AMS_2,
     "assetto_corsa": ASSETTO_CORSA,
+    "beamng": BEAMNG,
     "dirt_rally_2_0": DIRT_RALLY_2_0,
     "f1_2019": F1_2019,
     "f1_2020": F1_2020,
@@ -63,6 +69,7 @@ GAME_KEY_TO_CHOICE = {
     "f1_2023": F1_2023,
     "forza_horizon_5": FORZA_HORIZON_5,
     "forza_horizon_6": FORZA_HORIZON_6,
+    "live_for_speed": LIVE_FOR_SPEED,
     "truck_simulator": TRUCK_SIMULATOR,
     "wreckfest_2": WRECKFEST_2,
 }
@@ -177,6 +184,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.last_auto_detect_check = 0.0
         self.settings_path = self._get_settings_path()
         self.assetto_max_rpm = DEFAULT_ASSETTO_MAX_RPM
+        self.beamng_max_rpm = DEFAULT_BEAMNG_MAX_RPM
+        self.live_for_speed_max_rpm = DEFAULT_LIVE_FOR_SPEED_MAX_RPM
         self.shift_light_thresholds = tuple(BaseWheel.DEFAULT_SHIFT_LIGHT_THRESHOLDS)
         self._updating_shift_light_inputs = False
         self._load_settings()
@@ -225,6 +234,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget = Gio.ListStore(item_type=Widget)
         self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path=icon_path("ams-2.png")))
         self.model_widget.append(Widget(name="Assetto Corsa", image_path=icon_path("assetto.png")))
+        self.model_widget.append(Widget(name="BeamNG", image_path=icon_path("beamng.png")))
         self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path=icon_path("dirt-rally-2-0.png")))
         self.model_widget.append(Widget(name="F1 2019", image_path=icon_path("f1-2019.png")))
         self.model_widget.append(Widget(name="F1 2020", image_path=icon_path("f1-2020.png")))
@@ -232,6 +242,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="F1 2023", image_path=icon_path("f1-2023.png")))
         self.model_widget.append(Widget(name="Forza Horizon 5", image_path=icon_path("forza-horizon-5.png")))
         self.model_widget.append(Widget(name="Forza Horizon 6", image_path=icon_path("forza-horizon-5.png")))
+        self.model_widget.append(Widget(name="Live for Speed", image_path=icon_path("live-for-speed.png")))
         self.model_widget.append(Widget(name="Euro Truck Simulator 2 / American Truck Simulator",
             image_path=icon_path("euro-truck-simulator-2.png")))
         self.model_widget.append(Widget(name="Wreckfest 2", image_path=icon_path("wreckfest-2.png")))
@@ -271,20 +282,22 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.shift_light_threshold_row.append(threshold_input)
         game_panel.append(self.shift_light_threshold_row)
 
-        self.assetto_max_rpm_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.assetto_max_rpm_label = Gtk.Label(label="Assetto Max RPM")
-        self.assetto_max_rpm_label.set_xalign(0)
-        self.assetto_max_rpm_label.set_hexpand(True)
-        self.assetto_max_rpm_input = Gtk.SpinButton.new_with_range(
-            MIN_ASSETTO_MAX_RPM, MAX_ASSETTO_MAX_RPM, 100
+        self.max_rpm_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.max_rpm_label = Gtk.Label(label="Max RPM")
+        self.max_rpm_label.set_xalign(0)
+        self.max_rpm_label.set_hexpand(True)
+        self.max_rpm_input = Gtk.SpinButton.new_with_range(
+            MIN_MAX_RPM, MAX_MAX_RPM, 100
         )
-        self.assetto_max_rpm_input.set_numeric(True)
-        self.assetto_max_rpm_input.set_value(self.assetto_max_rpm)
-        self.assetto_max_rpm_input.connect("value-changed", self._on_assetto_max_rpm_changed)
-        self.assetto_max_rpm_row.append(self.assetto_max_rpm_label)
-        self.assetto_max_rpm_row.append(self.assetto_max_rpm_input)
-        self.assetto_max_rpm_row.set_visible(False)
-        game_panel.append(self.assetto_max_rpm_row)
+        self.max_rpm_input.set_numeric(True)
+        self.max_rpm_input.connect("value-changed", self._on_max_rpm_changed)
+        self.max_rpm_update_button = Gtk.Button(label="Update")
+        self.max_rpm_update_button.connect("clicked", self._on_max_rpm_updated)
+        self.max_rpm_row.append(self.max_rpm_label)
+        self.max_rpm_row.append(self.max_rpm_input)
+        self.max_rpm_row.append(self.max_rpm_update_button)
+        self.max_rpm_row.set_visible(False)
+        game_panel.append(self.max_rpm_row)
 
         self.ts_plugin_boxes = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
         self.ts_plugin_boxes.set_homogeneous(True)
@@ -436,10 +449,18 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.last_selected_game_choice = parser.getint(
                 "general", "last_selected_game", fallback=DEFAULT_LAST_SELECTED_GAME
             )
-            value = parser.getint(
+            value_assetto_max_rpm = parser.getint(
                 "assetto_corsa", "max_rpm", fallback=DEFAULT_ASSETTO_MAX_RPM
             )
-            self.assetto_max_rpm = max(MIN_ASSETTO_MAX_RPM, min(value, MAX_ASSETTO_MAX_RPM))
+            value_beamng_max_rpm = parser.getint(
+                "beamng", "max_rpm", fallback=DEFAULT_BEAMNG_MAX_RPM
+            )
+            value_live_for_speed_max_rpm = parser.getint(
+                "live_for_speed", "max_rpm", fallback=DEFAULT_LIVE_FOR_SPEED_MAX_RPM
+            )
+            self.assetto_max_rpm = max(MIN_MAX_RPM, min(value_assetto_max_rpm, MAX_MAX_RPM))
+            self.beamng_max_rpm = max(MIN_MAX_RPM, min(value_beamng_max_rpm, MAX_MAX_RPM))
+            self.value_live_for_speed_max_rpm = max(MIN_MAX_RPM, min(value_live_for_speed_max_rpm, MAX_MAX_RPM))
             shift_thresholds_raw = parser.get(
                 "shift_lights",
                 "thresholds",
@@ -457,6 +478,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             "last_selected_game": str(int(self.last_selected_game_choice)),
         }
         parser["assetto_corsa"] = {"max_rpm": str(int(self.assetto_max_rpm))}
+        parser["beamng"] = {"max_rpm": str(int(self.beamng_max_rpm))}
+        parser["live_for_speed"] = {"max_rpm": str(int(self.live_for_speed_max_rpm))}
         parser["shift_lights"] = {
             "thresholds": self._serialize_shift_light_thresholds(self.shift_light_thresholds)
         }
@@ -466,6 +489,17 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 parser.write(settings_file)
         except Exception as exc:
             print(f"Failed to write settings: {exc}")
+
+    def _read_and_save_max_rpm(self):
+        selected_choice = self.combo.get_selected()
+        if selected_choice == ASSETTO_CORSA:
+            self.assetto_max_rpm = int(self.max_rpm_input.get_value())
+        elif selected_choice == BEAMNG:
+            self.beamng_max_rpm = int(self.max_rpm_input.get_value())
+        elif selected_choice == LIVE_FOR_SPEED:
+            self.live_for_speed_max_rpm = int(self.max_rpm_input.get_value())
+
+        self._save_settings()
 
     def _set_shift_light_thresholds(self, thresholds, save=True):
         self.shift_light_thresholds = BaseWheel.set_shift_light_thresholds(thresholds)
@@ -486,9 +520,15 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         finally:
             self._updating_shift_light_inputs = False
 
-    def _on_assetto_max_rpm_changed(self, _spin):
-        self.assetto_max_rpm = int(self.assetto_max_rpm_input.get_value())
-        self._save_settings()
+    def _on_max_rpm_changed(self, _spin):
+        self._read_and_save_max_rpm()
+
+    def _on_max_rpm_updated(self, _spin):
+        selected_choice = self.combo.get_selected()
+
+        if self.running:
+            self._stop_telemetry()
+            self._start_telemetry_for_choice(selected_choice)
 
     def _on_auto_detect_toggled(self, _checkbox):
         self.auto_detect_enabled = self.auto_detect_checkbox.get_active()
@@ -517,7 +557,20 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
     def _on_game_selected_changed(self, *_args):
         selected_choice = self.combo.get_selected()
-        self.assetto_max_rpm_row.set_visible(selected_choice == ASSETTO_CORSA)
+
+        if selected_choice == ASSETTO_CORSA:
+            self.max_rpm_label.set_text("Assetto Max RPM")
+            self.max_rpm_input.set_value(self.assetto_max_rpm)
+        elif selected_choice == BEAMNG:
+            self.max_rpm_label.set_text("BeamNG Max RPM")
+            self.max_rpm_input.set_value(self.beamng_max_rpm)
+        elif selected_choice == LIVE_FOR_SPEED:
+            self.max_rpm_label.set_text("Live for Speed Max RPM")
+            self.max_rpm_input.set_value(self.live_for_speed_max_rpm)
+
+        self.max_rpm_row.set_visible(
+            selected_choice == ASSETTO_CORSA or selected_choice == BEAMNG or selected_choice == LIVE_FOR_SPEED)
+
         self.ts_plugin_boxes.set_visible(selected_choice == TRUCK_SIMULATOR)
         if self._is_valid_choice(selected_choice):
             self.last_selected_game_choice = int(selected_choice)
@@ -623,8 +676,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.running = False
 
     def _on_close_request(self, _window):
-        self.assetto_max_rpm = int(self.assetto_max_rpm_input.get_value())
-        self._save_settings()
+        self._read_and_save_max_rpm()
         self._stop_telemetry()
         return False
 
@@ -658,9 +710,17 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         if choice == AMS_2:
             return Automobilista2()
         if choice == ASSETTO_CORSA:
-            self.assetto_max_rpm = int(self.assetto_max_rpm_input.get_value())
+            self.assetto_max_rpm = int(self.max_rpm_input.get_value())
             self._save_settings()
             return AssettoCorsa(max_rpm=self.assetto_max_rpm)
+        if choice == BEAMNG:
+            self.beamng_max_rpm = int(self.max_rpm_input.get_value())
+            self._save_settings()
+            return OutGauge(max_rpm=self.beamng_max_rpm)
+        if choice == LIVE_FOR_SPEED:
+            self.live_for_speed_max_rpm = int(self.max_rpm_input.get_value())
+            self._save_settings()
+            return OutGauge(max_rpm=self.live_for_speed_max_rpm)
         if choice == TRUCK_SIMULATOR:
             return TruckSimulator()
         if choice == WRECKFEST_2:

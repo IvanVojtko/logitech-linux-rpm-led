@@ -61,6 +61,16 @@ GAME_SIGNATURES = (
         "process_tokens": ("assettocorsa.exe", "assetto corsa"),
     },
     {
+        "key": "beamng",
+        "steam_app_ids": {"284160"},
+        "process_tokens": ("beamng.drive.exe", "beamng.drive"),
+    },
+    {
+        "key": "live_for_speed",
+        "steam_app_ids": {},
+        "process_tokens": ("lfs.exe", "live for speed"),
+    },
+    {
         "key": "truck_simulator",
         "steam_app_ids": {"227300", "270880"},
         "process_tokens": (

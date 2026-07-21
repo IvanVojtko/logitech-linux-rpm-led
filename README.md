@@ -233,6 +233,14 @@ hook after installation and removal.
 
 ---
 
+### BeamNG
+
+1. Open settings.
+2. Select "Other" category.
+3. Enable "OutGauge support", with default port "4444".
+
+---
+
 ### Euro Truck Simulator 2 / American Truck Simulator
 
 ETS2/ATS do not expose RPM telemetry directly over UDP. They loads native SCS
@@ -287,6 +295,27 @@ or
 
 On a system with both compilers installed, `make -C scs-plugin
 SCS_SDK_DIR=/tmp/scs_sdk_1_14` builds both files.
+
+---
+
+### Live for Speed
+
+1. Edit the telemetry configuration file inside the Wine prefix:
+
+   `PREFIX_DIRECTORY/drive_c/LFS/cfg.txt`
+
+2. Update these values:
+
+   ```text
+   OutGauge Mode 1
+   OutGauge Delay 1
+   OutGauge IP 127.0.0.1
+   OutGauge Port 4444
+   ```
+
+   Set "Mode" value to "2" if you want RPM LEDs during replays.
+
+> Note: The `LFS` location may differ depending on the path you chose during installation.
 
 ---
 
