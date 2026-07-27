@@ -8,10 +8,12 @@ class G29(HIDClassic):
     PRODUCT_IDS = (0xC24F, 0xC260)   # PS3 / PS4 variants
 
 class G923xbox(HIDpp):
-    PRODUCT_IDS = (0xC26E, 0xC266)   # Xbox variant
+    PRODUCT_IDS = [0xC26E]   # Xbox variant
 
-class G923ps4(HIDClassic):
-    PRODUCT_IDS = [0xC267]   # PS4 variant
+class G923ps(HIDClassic):
+    # PlayStation variant: 0xC266 is PC (native) mode, 0xC267 is PS4 mode.
+    # Both drive the rev lights with the classic 0xF8 0x12 report, like the G29.
+    PRODUCT_IDS = (0xC266, 0xC267)
 
 # UNTESTED!
 class GPROxbox(HIDpp):

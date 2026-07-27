@@ -1,14 +1,32 @@
 import sys
 import types
 import unittest
+from unittest import mock
 
 from wheels.base import BaseWheel
-from wheels.hid_backend import enumerate_devices, open_device
+from wheels.hid_backend import HidBackendUnavailable, enumerate_devices, is_hid_error, open_device
 
 
 class TestHidBackend(unittest.TestCase):
     def tearDown(self) -> None:
         sys.modules.pop("hid", None)
+
+    def test_enumerate_devices_returns_empty_list_when_hid_module_missing(self) -> None:
+        sys.modules.pop("hid", None)
+        with mock.patch(
+            "wheels.hid_backend.importlib.import_module",
+            side_effect=ModuleNotFoundError("No module named 'hid'"),
+        ):
+            self.assertEqual(enumerate_devices(), [])
+
+    def test_is_hid_error_true_when_hid_module_missing(self) -> None:
+        sys.modules.pop("hid", None)
+        with mock.patch(
+            "wheels.hid_backend.importlib.import_module",
+            side_effect=ModuleNotFoundError("No module named 'hid'"),
+        ):
+            self.assertTrue(is_hid_error(HidBackendUnavailable("missing")))
+            self.assertTrue(is_hid_error(OSError("permission denied")))
 
     def test_enumerate_devices_delegates_to_hid_module(self) -> None:
         fake_hid = types.ModuleType("hid")
@@ -89,6 +107,22 @@ class TestWheelUsbConnection(unittest.TestCase):
         self.assertTrue(wheel.connect())
         self.assertEqual(opened_product_ids, [0x0001, 0x0002])
         self.assertEqual(wheel._dev.product_id, 0x0002)
+
+    def test_connect_returns_false_instead_of_raising_when_hid_module_missing(self) -> None:
+        sys.modules.pop("hid", None)
+
+        class TestWheel(BaseWheel):
+            PRODUCT_IDS = (0x0001, 0x0002)
+
+            def _led_report(self, bits: int) -> list[int]:
+                return [bits]
+
+        with mock.patch(
+            "wheels.hid_backend.importlib.import_module",
+            side_effect=ModuleNotFoundError("No module named 'hid'"),
+        ):
+            wheel = TestWheel()
+            self.assertFalse(wheel.connect())
 
 
 if __name__ == "__main__":

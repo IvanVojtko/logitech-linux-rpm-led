@@ -4,12 +4,27 @@ import importlib
 from typing import Any
 
 
+class HidBackendUnavailable(RuntimeError):
+    """Raised when the `hid` python package cannot be imported."""
+
+
+_warned_about_legacy_binding = False
+
+
 def _hid() -> Any:
-    return importlib.import_module("hid")
+    try:
+        return importlib.import_module("hid")
+    except Exception as error:
+        raise HidBackendUnavailable(str(error)) from error
 
 
 def is_hid_error(error: Exception) -> bool:
-    hid = _hid()
+    if isinstance(error, HidBackendUnavailable):
+        return True
+    try:
+        hid = _hid()
+    except HidBackendUnavailable:
+        return isinstance(error, OSError)
     hid_exception = getattr(hid, "HIDException", None)
     hid_errors = tuple(
         error_type
@@ -20,7 +35,10 @@ def is_hid_error(error: Exception) -> bool:
 
 
 def enumerate_devices() -> list[dict[str, Any]]:
-    hid = _hid()
+    try:
+        hid = _hid()
+    except HidBackendUnavailable:
+        return []
     return hid.enumerate()
 
 
@@ -30,7 +48,10 @@ def open_device(vendor_id: int, product_id: int) -> Any:
         return hid.Device(vendor_id, product_id)
 
     if hasattr(hid, "device"):
-        print("Warning: Falling back to alternative HID interface, this may not work for your wheel")
+        global _warned_about_legacy_binding
+        if not _warned_about_legacy_binding:
+            print("Warning: Falling back to alternative HID interface, this may not work for your wheel")
+            _warned_about_legacy_binding = True
         device = hid.device()
         device.open(vendor_id, product_id)
         return device

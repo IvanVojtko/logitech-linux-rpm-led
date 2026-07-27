@@ -211,6 +211,12 @@ class TestWreckfest2Parser(unittest.TestCase):
         game = Wreckfest2()
         self.assertEqual(game.get_rpm_percent(b"\x00" * WRECKFEST_2_MAX_POS, 37), 37)
 
+    def test_truncated_packet_under_five_bytes_does_not_raise(self) -> None:
+        game = Wreckfest2()
+        for size in range(0, 5):
+            with self.subTest(size=size):
+                self.assertEqual(game.get_rpm_percent(b"\x00" * size, 37), 37)
+
     def test_invalid_signed_packet_returns_previous_percent(self) -> None:
         game = Wreckfest2()
         values= [b'\x00'] * 500
