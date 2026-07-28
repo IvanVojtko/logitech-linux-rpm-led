@@ -32,6 +32,10 @@ class Wreckfest2:
         return rpm_percent
 
     def get_rpm_percent(self, data, percent) -> int:
+        if len(data) < 5:
+            print("ERROR: Packet was too small, cannot extract RPM")
+            return percent
+
         signature = int.from_bytes(data[0:4], byteorder='little', signed=False)
         packetType = data[4]
         if signature != 1869769584:

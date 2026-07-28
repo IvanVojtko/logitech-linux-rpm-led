@@ -20,19 +20,43 @@ _led_report(bits: int) -> Sequence[int]
     def __init__(self) -> None:
         self._dev: Any | None = None
         self._last_bits: int = -1    # cache to avoid spamming
+        self.last_error: Exception | None = None
 
 
-    def connect(self) -> bool:
-        for pid in self.PRODUCT_IDS:
+    def connect(self, product_id: int | None = None) -> bool:
+        """Open the wheel, optionally restricted to an already enumerated product id."""
+        product_ids = (product_id,) if product_id is not None else tuple(self.PRODUCT_IDS)
+        self.last_error = None
+        for pid in product_ids:
             try:
                 self._dev = open_device(self.VENDOR_ID, pid)
-                self._post_connect_setup()
-                return True
             except Exception as error:
                 if is_hid_error(error):
+                    self.last_error = error
                     continue
                 raise
+            try:
+                self._post_connect_setup()
+            except Exception as error:
+                if not is_hid_error(error):
+                    raise
+                # The device opened but does not speak this protocol: drop it so a
+                # stale handle is not kept around and try the next product id.
+                self.last_error = error
+                self._close_device()
+                continue
+            return True
         return False
+
+    def _close_device(self) -> None:
+        device, self._dev = self._dev, None
+        close = getattr(device, "close", None)
+        if not callable(close):
+            return
+        try:
+            close()
+        except Exception:
+            pass
 
     def leds_rpm(self, percent: float) -> None:
         bits = self._percent_to_bits(percent)

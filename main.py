@@ -251,9 +251,6 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.remember_last_game_checkbox.connect("toggled", self._on_remember_last_game_toggled)
         game_panel.append(self.remember_last_game_checkbox)
 
-        if self.remember_last_selected_game and self._is_valid_choice(self.last_selected_game_choice):
-            self.combo.set_selected(self.last_selected_game_choice)
-
         self.shift_light_threshold_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         self.shift_light_threshold_label = Gtk.Label(label="Shift LEDs (%)")
         self.shift_light_threshold_label.set_xalign(0)
@@ -312,6 +309,12 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         ats_plugin_box.append(self.ats_plugin_button)
         ats_plugin_box.append(self.ats_plugin_status)
         self.ts_plugin_boxes.append(ats_plugin_box)
+
+        # Restore the saved selection only once every widget the handler touches
+        # exists, otherwise "notify::selected" fires against a half-built window.
+        if self.remember_last_selected_game and self._is_valid_choice(self.last_selected_game_choice):
+            self.combo.set_selected(self.last_selected_game_choice)
+        self._on_game_selected_changed()
 
         self.wheel = find_wheel()
         if not self.wheel:
@@ -776,11 +779,15 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 continue
 
             last_packet_time = time.monotonic()
-            if choice in (FORZA_HORIZON_5, FORZA_HORIZON_6):
-                max_rpm, current_rpm = game.parse_rpm(data=data)
-                percent = game.get_rpm_percent(max_rpm=max_rpm, current_rpm=current_rpm)
-            else:
-                percent = game.get_rpm_percent(data, percent)
+            try:
+                if choice in (FORZA_HORIZON_5, FORZA_HORIZON_6):
+                    max_rpm, current_rpm = game.parse_rpm(data=data)
+                    percent = game.get_rpm_percent(max_rpm=max_rpm, current_rpm=current_rpm)
+                else:
+                    percent = game.get_rpm_percent(data, percent)
+            except Exception as exc:
+                print(f"Telemetry parse failed, ignoring packet: {exc}")
+                continue
             clamped_percent = max(0, min(int(percent), 100))
             self.shared_rpm_percent = clamped_percent
             now = time.perf_counter()
