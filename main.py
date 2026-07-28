@@ -150,11 +150,13 @@ class Widget(Gtk.Box):
         # Create an image widget
         self._image = image_path
 
-    @GObject.Property
+    # The types matter: the dropdown search expression is only accepted by GTK
+    # when the property it reads resolves to a string.
+    @GObject.Property(type=str)
     def name(self):
         return self._name
 
-    @GObject.Property
+    @GObject.Property(type=str)
     def image(self):
         return self._image
 
@@ -237,7 +239,14 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="Wreckfest 2", image_path=icon_path("wreckfest-2.png")))
         self.combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
         self.combo.set_hexpand(True)
+        # Search stays inert unless the dropdown is told how to turn an item
+        # into text, so the expression has to be set alongside enable-search.
+        self.combo.set_expression(Gtk.PropertyExpression.new(Widget, None, "name"))
         self.combo.set_enable_search(True)
+        if hasattr(self.combo, "set_search_match_mode"):
+            # Prefix matching (the default) cannot find "Truck" in entries like
+            # "Euro Truck Simulator 2 / American Truck Simulator".
+            self.combo.set_search_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
         game_panel.append(self.combo)
         self.combo.connect("notify::selected", self._on_game_selected_changed)
 
