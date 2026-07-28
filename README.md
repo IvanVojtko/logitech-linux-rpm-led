@@ -35,7 +35,9 @@ If you like my work, consider supporting me:
 - **DiRT Rally 2.0**
 - **SMS Madness Engine games** (e.g., **Automobilista 2**, **Project CARS**, **Project CARS 2**)
 - **Assetto Corsa** (manual max RPM input in app)
+- **BeamNG.drive** (manual max RPM input in app)
 - **Euro Truck Simulator 2 / American Truck Simulator** (requires the included SCS telemetry plugin)
+- **Live for Speed** (manual max RPM input in app)
 - **Wreckfest 2**
 
 ## Supported Wheels

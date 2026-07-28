@@ -460,7 +460,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             )
             self.assetto_max_rpm = max(MIN_MAX_RPM, min(value_assetto_max_rpm, MAX_MAX_RPM))
             self.beamng_max_rpm = max(MIN_MAX_RPM, min(value_beamng_max_rpm, MAX_MAX_RPM))
-            self.value_live_for_speed_max_rpm = max(MIN_MAX_RPM, min(value_live_for_speed_max_rpm, MAX_MAX_RPM))
+            self.live_for_speed_max_rpm = max(MIN_MAX_RPM, min(value_live_for_speed_max_rpm, MAX_MAX_RPM))
             shift_thresholds_raw = parser.get(
                 "shift_lights",
                 "thresholds",
