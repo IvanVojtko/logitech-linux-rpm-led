@@ -41,14 +41,14 @@ ASSETTO_CORSA =                 1
 ASSETTO_CORSA_COMPETIZIONE =    2
 BEAMNG =                        3
 DIRT_RALLY_2_0 =                4
-F1_2019 =                       5
-F1_2020 =                       6
-F1_2022 =                       7
-F1_2023 =                       8
-FORZA_HORIZON_5 =               9
-FORZA_HORIZON_6 =               10
-LIVE_FOR_SPEED =                11
-TRUCK_SIMULATOR =               12
+TRUCK_SIMULATOR =               5
+F1_2019 =                       6
+F1_2020 =                       7
+F1_2022 =                       8
+F1_2023 =                       9
+FORZA_HORIZON_5 =               10
+FORZA_HORIZON_6 =               11
+LIVE_FOR_SPEED =                12
 WRECKFEST_2 =                   13
 
 DEFAULT_ASSETTO_MAX_RPM = 9000
@@ -81,6 +81,7 @@ GAME_KEY_TO_CHOICE = {
     "assetto_corsa_competizione": ASSETTO_CORSA_COMPETIZIONE,
     "beamng": BEAMNG,
     "dirt_rally_2_0": DIRT_RALLY_2_0,
+    "truck_simulator": TRUCK_SIMULATOR,
     "f1_2019": F1_2019,
     "f1_2020": F1_2020,
     "f1_2022": F1_2022,
@@ -88,7 +89,6 @@ GAME_KEY_TO_CHOICE = {
     "forza_horizon_5": FORZA_HORIZON_5,
     "forza_horizon_6": FORZA_HORIZON_6,
     "live_for_speed": LIVE_FOR_SPEED,
-    "truck_simulator": TRUCK_SIMULATOR,
     "wreckfest_2": WRECKFEST_2,
 }
 
@@ -299,15 +299,15 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="Assetto Corsa Competizione", image_path=icon_path("assetto-corsa-competizione.png")))
         self.model_widget.append(Widget(name="BeamNG", image_path=icon_path("beamng.png")))
         self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path=icon_path("dirt-rally-2-0.png")))
+        self.model_widget.append(Widget(name="Euro Truck Simulator 2 / American Truck Simulator",
+            image_path=icon_path("euro-truck-simulator-2.png")))
         self.model_widget.append(Widget(name="F1 2019", image_path=icon_path("f1-2019.png")))
         self.model_widget.append(Widget(name="F1 2020", image_path=icon_path("f1-2020.png")))
         self.model_widget.append(Widget(name="F1 2022", image_path=icon_path("f1-2022.png")))
         self.model_widget.append(Widget(name="F1 2023", image_path=icon_path("f1-2023.png")))
         self.model_widget.append(Widget(name="Forza Horizon 5", image_path=icon_path("forza-horizon-5.png")))
-        self.model_widget.append(Widget(name="Forza Horizon 6", image_path=icon_path("forza-horizon-5.png")))
+        self.model_widget.append(Widget(name="Forza Horizon 6", image_path=icon_path("forza-horizon-6.png")))
         self.model_widget.append(Widget(name="Live for Speed", image_path=icon_path("live-for-speed.png")))
-        self.model_widget.append(Widget(name="Euro Truck Simulator 2 / American Truck Simulator",
-            image_path=icon_path("euro-truck-simulator-2.png")))
         self.model_widget.append(Widget(name="Wreckfest 2", image_path=icon_path("wreckfest-2.png")))
         self.combo = Gtk.DropDown(model=self.model_widget)
         self.combo.set_hexpand(True)
