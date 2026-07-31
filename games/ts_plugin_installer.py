@@ -83,6 +83,43 @@ def find_plugin_binaries(app_dir=None):
     return binaries
 
 
+GAME_MISSING = "game-missing"
+PLUGIN_MISSING = "plugin-missing"
+PLUGIN_INSTALLED = "plugin-installed"
+
+
+def plugin_destination(install_dir, platform_dir, filename):
+    return Path(install_dir) / "bin" / platform_dir / "plugins" / filename
+
+
+def ts_plugin_status(app_id, dir_name, steam_roots=None):
+    """Report whether the telemetry plugin is already in place.
+
+    Returns (state, installed_paths). The three states are distinct advice for
+    the user: install the game, install the plugin, or nothing to do.
+    """
+    install_dirs = find_ts_install_dirs(app_id, dir_name, steam_roots)
+    if not install_dirs:
+        return GAME_MISSING, []
+
+    installed = []
+    for install_dir in install_dirs:
+        for platform_dir, filename in PLUGIN_FILENAMES:
+            destination = plugin_destination(install_dir, platform_dir, filename)
+            if destination.exists():
+                installed.append(destination)
+
+    return (PLUGIN_INSTALLED if installed else PLUGIN_MISSING), installed
+
+
+def ets2_plugin_status(steam_roots=None):
+    return ts_plugin_status(ETS2_APP_ID, ETS2_DIR_NAME, steam_roots)
+
+
+def ats_plugin_status(steam_roots=None):
+    return ts_plugin_status(ATS_APP_ID, ATS_DIR_NAME, steam_roots)
+
+
 def install_ts_plugins(app_id, dir_name, steam_roots=None, app_dir=None):
     install_dirs = find_ts_install_dirs(app_id, dir_name, steam_roots)
     if not install_dirs:
@@ -95,9 +132,8 @@ def install_ts_plugins(app_id, dir_name, steam_roots=None, app_dir=None):
     installed_paths = []
     for install_dir in install_dirs:
         for platform_dir, source in plugin_binaries:
-            destination_dir = install_dir / "bin" / platform_dir / "plugins"
-            destination_dir.mkdir(parents=True, exist_ok=True)
-            destination = destination_dir / source.name
+            destination = plugin_destination(install_dir, platform_dir, source.name)
+            destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
             installed_paths.append(destination)
 

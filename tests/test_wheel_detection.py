@@ -2,7 +2,7 @@ import unittest
 from unittest import mock
 
 from wheels.base import BaseWheel
-from wheels.detect import DEVICE_MAP, find_wheel
+from wheels.detect import DEVICE_MAP, find_wheel, find_wheel_with_failures
 from wheels.protocols import HIDClassic, HIDpp
 from wheels.wheels import G923ps, G923xbox
 
@@ -76,6 +76,42 @@ class TestFindWheel(unittest.TestCase):
         self.assertIn("Permission denied", printed)
 
 
+class TestFindWheelFailures(unittest.TestCase):
+    """The rescan button turns these failures into on-screen advice.
+
+    "Nothing plugged in" and "plugged in but unopenable" need different
+    messages, so the reason has to survive the call, not just be printed.
+    """
+
+    def test_an_unopenable_wheel_is_returned_as_a_failure(self) -> None:
+        with mock.patch(
+            "wheels.detect.enumerate_devices",
+            return_value=[{"vendor_id": LOGITECH, "product_id": 0xC266}],
+        ), mock.patch("wheels.base.open_device", side_effect=OSError("Permission denied")):
+            wheel, failures = find_wheel_with_failures()
+
+        self.assertIsNone(wheel)
+        self.assertEqual(len(failures), 1)
+        name, product_id, error = failures[0]
+        self.assertEqual(name, "G923ps")
+        self.assertEqual(product_id, 0xC266)
+        self.assertIn("Permission denied", str(error))
+
+    def test_no_devices_at_all_reports_no_failures(self) -> None:
+        with mock.patch("wheels.detect.enumerate_devices", return_value=[]):
+            self.assertEqual(find_wheel_with_failures(), (None, []))
+
+    def test_a_detected_wheel_reports_no_failures(self) -> None:
+        with mock.patch(
+            "wheels.detect.enumerate_devices",
+            return_value=[{"vendor_id": LOGITECH, "product_id": 0xC266}],
+        ), mock.patch("wheels.base.open_device", side_effect=lambda v, p: FakeDevice(p)):
+            wheel, failures = find_wheel_with_failures()
+
+        self.assertIsInstance(wheel, G923ps)
+        self.assertEqual(failures, [])
+
+
 class TestConnectCleanup(unittest.TestCase):
     def test_device_is_closed_when_post_connect_setup_fails(self) -> None:
         device = FakeDevice(0xC26E, write_error=OSError("wrong protocol"))
@@ -90,6 +126,24 @@ class TestConnectCleanup(unittest.TestCase):
         self.assertTrue(device.closed)
         self.assertIsNone(wheel._dev)
         self.assertIsInstance(wheel.last_error, OSError)
+
+    def test_close_releases_the_handle_so_a_rescan_can_reopen(self) -> None:
+        device = FakeDevice(0xC26E)
+
+        class TestWheel(BaseWheel):
+            PRODUCT_IDS = (0xC26E,)
+
+            def _led_report(self, bits: int) -> list[int]:
+                return [bits]
+
+        with mock.patch("wheels.base.open_device", return_value=device):
+            wheel = TestWheel()
+            self.assertTrue(wheel.connect())
+
+        wheel.close()
+
+        self.assertTrue(device.closed)
+        self.assertIsNone(wheel._dev)
 
     def test_connect_without_product_id_still_tries_every_id(self) -> None:
         opened: list[int] = []

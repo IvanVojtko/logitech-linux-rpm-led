@@ -49,5 +49,38 @@ class DropDownSearchTest(unittest.TestCase):
         self.assertEqual(matches, ["Euro Truck Simulator 2 / American Truck Simulator"])
 
 
+@unittest.skipUnless(GTK_AVAILABLE, "GTK 4 / libadwaita bindings are not available")
+class DropDownFactoryOrderTest(unittest.TestCase):
+    """Enabling search must not cost the games their icons.
+
+    Gtk.DropDown.set_expression() installs GTK's own label-only factory, which
+    silently replaces a factory that was set earlier -- the icons then vanish
+    from both the button and the popup list.
+    """
+
+    def _configure(self, dropdown, factory, factory_first):
+        expression = Gtk.PropertyExpression.new(main.Widget, None, "name")
+        if factory_first:
+            dropdown.set_factory(factory)
+            dropdown.set_expression(expression)
+        else:
+            dropdown.set_expression(expression)
+            dropdown.set_factory(factory)
+        dropdown.set_enable_search(True)
+
+    def test_expression_set_after_the_factory_discards_it(self) -> None:
+        factory = Gtk.SignalListItemFactory()
+        dropdown = Gtk.DropDown()
+        self._configure(dropdown, factory, factory_first=True)
+        self.assertIsNot(dropdown.get_factory(), factory)
+
+    def test_factory_set_after_the_expression_survives(self) -> None:
+        factory = Gtk.SignalListItemFactory()
+        dropdown = Gtk.DropDown()
+        self._configure(dropdown, factory, factory_first=False)
+        self.assertIs(dropdown.get_factory(), factory)
+        self.assertIsNotNone(dropdown.get_expression())
+
+
 if __name__ == "__main__":
     unittest.main()

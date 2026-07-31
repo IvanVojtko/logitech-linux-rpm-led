@@ -3,11 +3,15 @@ import unittest
 from pathlib import Path
 
 from games.ts_plugin_installer import (
+    GAME_MISSING,
+    PLUGIN_INSTALLED,
+    PLUGIN_MISSING,
     discover_steam_libraries,
     find_ts_install_dirs,
     find_plugin_binaries,
     install_ets2_plugins,
     install_ats_plugins,
+    ts_plugin_status,
 )
 
 
@@ -101,6 +105,56 @@ class TestTsPluginInstaller(unittest.TestCase):
             self.assertEqual(installed_paths, [expected_linux, expected_windows])
             self.assertEqual(expected_linux.read_bytes(), b"linux")
             self.assertEqual(expected_windows.read_bytes(), b"windows")
+
+
+class TestTsPluginStatus(unittest.TestCase):
+    """The UI reports the plugin state before the user clicks Install."""
+
+    ETS2 = ("227300", "Euro Truck Simulator 2")
+
+    def _make_install_dir(self, temp_dir):
+        root = Path(temp_dir) / "Steam"
+        steamapps = root / "steamapps"
+        install_dir = steamapps / "common" / self.ETS2[1]
+        install_dir.mkdir(parents=True)
+        return root, install_dir
+
+    def test_reports_a_missing_game(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "Steam"
+            (root / "steamapps").mkdir(parents=True)
+
+            self.assertEqual(ts_plugin_status(*self.ETS2, [root]), (GAME_MISSING, []))
+
+    def test_reports_an_installed_game_without_the_plugin(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root, _install_dir = self._make_install_dir(temp_dir)
+
+            self.assertEqual(ts_plugin_status(*self.ETS2, [root]), (PLUGIN_MISSING, []))
+
+    def test_reports_the_installed_plugin_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root, install_dir = self._make_install_dir(temp_dir)
+            plugin = install_dir / "bin/linux_x64/plugins/logitech_rpm_telemetry.so"
+            plugin.parent.mkdir(parents=True)
+            plugin.write_bytes(b"linux")
+
+            self.assertEqual(ts_plugin_status(*self.ETS2, [root]), (PLUGIN_INSTALLED, [plugin]))
+
+    def test_status_sees_what_the_installer_just_wrote(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root, _install_dir = self._make_install_dir(temp_dir)
+            app_dir = Path(temp_dir) / "app"
+            plugin_dir = app_dir / "scs-plugin"
+            plugin_dir.mkdir(parents=True)
+            (plugin_dir / "logitech_rpm_telemetry.so").write_bytes(b"linux")
+            (plugin_dir / "logitech_rpm_telemetry.dll").write_bytes(b"windows")
+
+            installed_paths = install_ets2_plugins(steam_roots=[root], app_dir=app_dir)
+
+            self.assertEqual(
+                ts_plugin_status(*self.ETS2, [root]), (PLUGIN_INSTALLED, installed_paths)
+            )
 
 
 if __name__ == "__main__":

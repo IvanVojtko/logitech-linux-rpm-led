@@ -48,6 +48,14 @@ _led_report(bits: int) -> Sequence[int]
             return True
         return False
 
+    def close(self) -> None:
+        """Release the HID handle so the wheel can be opened again.
+
+        Rescanning has to let go of the current handle first, otherwise the
+        fresh open() hits a device that this process is still holding.
+        """
+        self._close_device()
+
     def _close_device(self) -> None:
         device, self._dev = self._dev, None
         close = getattr(device, "close", None)
