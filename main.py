@@ -23,10 +23,13 @@ from games.outgauge import OutGauge
 from games.truck_simulator import TruckSimulator
 from games.ts_plugin_installer import install_ets2_plugins
 from games.ts_plugin_installer import install_ats_plugins
+from games.ts_plugin_installer import ets2_plugin_status as query_ets2_plugin_status
+from games.ts_plugin_installer import ats_plugin_status as query_ats_plugin_status
+from games.ts_plugin_installer import GAME_MISSING, PLUGIN_INSTALLED
 from games.wreckfest_2 import Wreckfest2
 from games.autodetect import detect_running_game
 from wheels.base import BaseWheel
-from wheels.detect import find_wheel
+from wheels.detect import find_wheel_with_failures, PERMISSION_HINT
 
 APP_DIR = Path(__file__).resolve().parent
 ICONS_DIR = APP_DIR / "icons"
@@ -57,6 +60,18 @@ AUTO_DETECT_INTERVAL_SECONDS = 1.0
 DEFAULT_REMEMBER_LAST_GAME = False
 DEFAULT_LAST_SELECTED_GAME = AMS_2
 SHIFT_LIGHT_THRESHOLD_COUNT = 5
+
+MESSAGE_ERROR = "error"
+MESSAGE_WARNING = "warning"
+MESSAGE_SUCCESS = "success"
+MESSAGE_SEVERITIES = (MESSAGE_ERROR, MESSAGE_WARNING, MESSAGE_SUCCESS)
+MESSAGE_ICONS = {
+    MESSAGE_ERROR: "dialog-error-symbolic",
+    MESSAGE_WARNING: "dialog-warning-symbolic",
+    MESSAGE_SUCCESS: "emblem-ok-symbolic",
+}
+MESSAGE_TAG_WHEEL = "wheel"
+MESSAGE_TAG_TELEMETRY = "telemetry"
 
 GAME_KEY_TO_CHOICE = {
     "ams_2": AMS_2,
@@ -97,6 +112,46 @@ APP_CSS = """
   border-radius: 14px;
   border: 1px solid alpha(@theme_fg_color, 0.10);
   padding: 16px;
+}
+
+/* The bar tints its background per severity but leaves the label in the theme
+   foreground colour, so it stays readable in both light and dark themes. */
+.message-bar {
+  border-radius: 12px;
+  border: 1px solid alpha(@theme_fg_color, 0.10);
+  padding: 10px 12px;
+  background-color: alpha(@theme_fg_color, 0.08);
+}
+
+.message-bar.error {
+  background-color: alpha(#e4534d, 0.18);
+  border-color: alpha(#e4534d, 0.45);
+}
+
+.message-bar.warning {
+  background-color: alpha(#b26a00, 0.18);
+  border-color: alpha(#b26a00, 0.45);
+}
+
+.message-bar.success {
+  background-color: alpha(#2f8f46, 0.18);
+  border-color: alpha(#2f8f46, 0.45);
+}
+
+.message-bar-icon.error {
+  color: #e4534d;
+}
+
+.message-bar-icon.warning {
+  color: #b26a00;
+}
+
+.message-bar-icon.success {
+  color: #2f8f46;
+}
+
+.message-bar-text {
+  font-weight: 600;
 }
 
 .section-title {
@@ -218,6 +273,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         root.append(title)
         root.append(subtitle)
 
+        self._build_message_bar(root)
+
         game_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         game_panel.add_css_class("panel")
         root.append(game_panel)
@@ -248,7 +305,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="Euro Truck Simulator 2 / American Truck Simulator",
             image_path=icon_path("euro-truck-simulator-2.png")))
         self.model_widget.append(Widget(name="Wreckfest 2", image_path=icon_path("wreckfest-2.png")))
-        self.combo = Gtk.DropDown(model=self.model_widget, factory=factory_widget)
+        self.combo = Gtk.DropDown(model=self.model_widget)
         self.combo.set_hexpand(True)
         # Search stays inert unless the dropdown is told how to turn an item
         # into text, so the expression has to be set alongside enable-search.
@@ -258,6 +315,10 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             # Prefix matching (the default) cannot find "Truck" in entries like
             # "Euro Truck Simulator 2 / American Truck Simulator".
             self.combo.set_search_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
+        # Order matters: set_expression() swaps in GTK's built-in label-only
+        # factory, so our icon factory has to be installed afterwards or every
+        # game loses its icon.
+        self.combo.set_factory(factory_widget)
         game_panel.append(self.combo)
         self.combo.connect("notify::selected", self._on_game_selected_changed)
 
@@ -338,9 +399,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.combo.set_selected(self.last_selected_game_choice)
         self._on_game_selected_changed()
 
-        self.wheel = find_wheel()
-        if not self.wheel:
-            print("No supported Logitech wheel found.")
+        # Detected further down, once the status widgets it reports into exist.
+        self.wheel = None
 
         self.start_button = Gtk.Button(label="Start Telemetry")
         self.start_button.add_css_class("suggested-action")
@@ -363,6 +423,12 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.wheel_status_text = Gtk.Label()
         self.wheel_status_text.add_css_class("status-value")
         self._append_status_value(wheel_row, self.wheel_status_icon, self.wheel_status_text)
+        self.rescan_button = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
+        self.rescan_button.add_css_class("flat")
+        self.rescan_button.set_tooltip_text("Rescan for a connected wheel")
+        self.rescan_button.set_valign(Gtk.Align.CENTER)
+        self.rescan_button.connect("clicked", self._on_rescan_wheel_clicked)
+        wheel_row.append(self.rescan_button)
         status_panel.append(wheel_row)
 
         session_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -397,12 +463,80 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.rpm_leds.append(led)
         status_panel.append(self.rpm_led_row)
 
-        self._update_wheel_status()
+        self._detect_wheel(announce_success=False)
         self._update_running_status()
         self._update_rpm_preview(0)
         self._on_game_selected_changed()
         GLib.timeout_add(80, self._refresh_process_state)
         self.connect("close-request", self._on_close_request)
+
+    def _build_message_bar(self, root):
+        self.message_revealer = Gtk.Revealer()
+        self.message_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+        self.message_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.message_bar.add_css_class("message-bar")
+        self.message_icon = Gtk.Image()
+        self.message_icon.add_css_class("message-bar-icon")
+        self.message_text = Gtk.Label()
+        self.message_text.add_css_class("message-bar-text")
+        self.message_text.set_xalign(0)
+        self.message_text.set_wrap(True)
+        self.message_text.set_hexpand(True)
+        dismiss_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
+        dismiss_button.add_css_class("flat")
+        dismiss_button.set_tooltip_text("Dismiss this message")
+        dismiss_button.set_valign(Gtk.Align.CENTER)
+        dismiss_button.connect("clicked", self._on_message_dismissed)
+        self.message_bar.append(self.message_icon)
+        self.message_bar.append(self.message_text)
+        self.message_bar.append(dismiss_button)
+        self.message_revealer.set_child(self.message_bar)
+        self._current_message = None
+        self._current_message_tag = None
+        root.append(self.message_revealer)
+
+    def _show_message(self, text, severity=MESSAGE_ERROR, tag=None):
+        """Reveal the message bar. Repeats of the current message are ignored.
+
+        The telemetry loop retries once a second, so an unfiltered failure
+        message would rebuild the bar continuously while a game is closed.
+        """
+        self._current_message_tag = tag
+        if self._current_message == (text, severity):
+            return
+        self._current_message = (text, severity)
+        for known_severity in MESSAGE_SEVERITIES:
+            self.message_bar.remove_css_class(known_severity)
+            self.message_icon.remove_css_class(known_severity)
+        self.message_bar.add_css_class(severity)
+        self.message_icon.add_css_class(severity)
+        self.message_icon.set_from_icon_name(MESSAGE_ICONS[severity])
+        self.message_text.set_text(text)
+        self.message_revealer.set_reveal_child(True)
+
+    def _clear_message(self, tag=None):
+        """Hide the bar. With a tag, only a message from that source is hidden.
+
+        Telemetry reconnecting must not wipe an unrelated warning such as a
+        missing wheel, so it only clears what it put there itself.
+        """
+        if tag is not None and self._current_message_tag != tag:
+            return
+        self._current_message = None
+        self._current_message_tag = None
+        self.message_revealer.set_reveal_child(False)
+
+    def _post_message(self, text, severity=MESSAGE_ERROR, tag=None):
+        """Show a message from the telemetry thread, on the GTK main loop."""
+        GLib.idle_add(self._show_message, text, severity, tag)
+
+    def _post_clear_message(self, tag=None):
+        GLib.idle_add(self._clear_message, tag)
+
+    def _on_message_dismissed(self, _button):
+        # Deliberately keeps _current_message: the telemetry loop retries every
+        # second, and forgetting it would pop the same message back instantly.
+        self.message_revealer.set_reveal_child(False)
 
     def _append_status_caption(self, row, text):
         caption = Gtk.Label(label=text)
@@ -567,6 +701,48 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.wheel_status_icon.set_from_icon_name("dialog-warning-symbolic")
         self.wheel_status_text.set_text("Not detected (preview only)")
 
+    def _detect_wheel(self, announce_success):
+        """(Re)scan for a wheel and report the outcome in the message bar."""
+        # A scan supersedes whatever is on the bar -- including a message the
+        # user dismissed -- so its result always gets announced.
+        self._clear_message()
+        if self.wheel:
+            # The old handle has to go first or re-opening the same device fails.
+            self.wheel.close()
+            self.wheel = None
+
+        self.wheel, failures = find_wheel_with_failures()
+        self._update_wheel_status()
+
+        if self.wheel:
+            if announce_success:
+                self._show_message("Wheel detected.", MESSAGE_SUCCESS, MESSAGE_TAG_WHEEL)
+            return
+
+        if failures:
+            name, product_id, error = failures[0]
+            self._show_message(
+                f"{name} ({hex(product_id)}) was found but could not be opened: {error} "
+                f"{PERMISSION_HINT}",
+                MESSAGE_ERROR,
+                MESSAGE_TAG_WHEEL,
+            )
+            return
+
+        self._show_message(
+            "No supported Logitech wheel found. Connect one and press Rescan; "
+            "the RPM preview below works without hardware.",
+            MESSAGE_WARNING,
+            MESSAGE_TAG_WHEEL,
+        )
+
+    def _on_rescan_wheel_clicked(self, _button):
+        # Rescanning swaps self.wheel, but a running telemetry thread holds the
+        # old instance, so the button stays disabled while a session is live.
+        if self.running:
+            return
+        self._detect_wheel(announce_success=True)
+
     def _on_game_selected_changed(self, *_args):
         selected_choice = self.combo.get_selected()
 
@@ -583,55 +759,81 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.max_rpm_row.set_visible(
             selected_choice == ASSETTO_CORSA or selected_choice == BEAMNG or selected_choice == LIVE_FOR_SPEED)
 
-        self.ts_plugin_boxes.set_visible(selected_choice == TRUCK_SIMULATOR)
+        showing_ts_plugins = selected_choice == TRUCK_SIMULATOR
+        self.ts_plugin_boxes.set_visible(showing_ts_plugins)
+        if showing_ts_plugins:
+            self._refresh_ts_plugin_statuses()
+
         if self._is_valid_choice(selected_choice):
             self.last_selected_game_choice = int(selected_choice)
             if self.remember_last_selected_game:
                 self._save_settings()
 
-    def _set_ets2_plugin_status(self, message, css_class):
-        self.ets2_plugin_status.remove_css_class("success-label")
-        self.ets2_plugin_status.remove_css_class("warning-label")
-        self.ets2_plugin_status.add_css_class(css_class)
-        self.ets2_plugin_status.set_text(message)
+    @staticmethod
+    def _set_plugin_status(label, message, css_class=None):
+        label.remove_css_class("success-label")
+        label.remove_css_class("warning-label")
+        if css_class:
+            label.add_css_class(css_class)
+        label.set_text(message)
 
-    def _set_ats_plugin_status(self, message, css_class):
-        self.ats_plugin_status.remove_css_class("success-label")
-        self.ats_plugin_status.remove_css_class("warning-label")
-        self.ats_plugin_status.add_css_class(css_class)
-        self.ats_plugin_status.set_text(message)
+    def _refresh_plugin_status(self, label, status_query, game_name, short_name):
+        """Show whether the plugin is already installed, before anything is clicked."""
+        try:
+            state, installed_paths = status_query()
+        except Exception as exc:
+            self._set_plugin_status(label, f"Could not check the plugin: {exc}", "warning-label")
+            return
+
+        if state == GAME_MISSING:
+            self._set_plugin_status(
+                label, f"{game_name} was not found in your Steam libraries.", "warning-label"
+            )
+            return
+        if state == PLUGIN_INSTALLED:
+            self._set_plugin_status(
+                label, f"Plugin installed ({len(installed_paths)} file(s)).", "success-label"
+            )
+            return
+        self._set_plugin_status(label, f"Plugin not installed for {short_name} yet.")
+
+    def _refresh_ts_plugin_statuses(self):
+        self._refresh_plugin_status(
+            self.ets2_plugin_status, query_ets2_plugin_status, "Euro Truck Simulator 2", "ETS2"
+        )
+        self._refresh_plugin_status(
+            self.ats_plugin_status, query_ats_plugin_status, "American Truck Simulator", "ATS"
+        )
+
+    def _install_plugins(self, button, label, installer, short_name):
+        button.set_sensitive(False)
+        try:
+            installed_paths = installer(app_dir=Path(__file__).resolve().parent)
+            if not installed_paths:
+                self._set_plugin_status(
+                    label, f"No {short_name} plugin files were installed.", "warning-label"
+                )
+                return
+            self._set_plugin_status(
+                label,
+                f"Installed {len(installed_paths)} {short_name} plugin file(s). "
+                f"Restart {short_name} if it is already running.",
+                "success-label",
+            )
+        except Exception as exc:
+            self._set_plugin_status(label, str(exc), "warning-label")
+        finally:
+            button.set_sensitive(True)
 
     def _on_ets2_plugin_install_clicked(self, _button):
-        self.ets2_plugin_button.set_sensitive(False)
-        try:
-            installed_paths = install_ets2_plugins(app_dir=Path(__file__).resolve().parent)
-            if not installed_paths:
-                self._set_ets2_plugin_status("No ETS2 plugin files were installed.", "warning-label")
-                return
-            self._set_ets2_plugin_status(
-                f"Installed {len(installed_paths)} ETS2 plugin file(s). Restart ETS2 if it is already running.",
-                "success-label",
-            )
-        except Exception as exc:
-            self._set_ets2_plugin_status(str(exc), "warning-label")
-        finally:
-            self.ets2_plugin_button.set_sensitive(True)
+        self._install_plugins(
+            self.ets2_plugin_button, self.ets2_plugin_status, install_ets2_plugins, "ETS2"
+        )
 
     def _on_ats_plugin_install_clicked(self, _button):
-        self.ats_plugin_button.set_sensitive(False)
-        try:
-            installed_paths = install_ats_plugins(app_dir=Path(__file__).resolve().parent)
-            if not installed_paths:
-                self._set_ats_plugin_status("No ATS plugin files were installed.", "warning-label")
-                return
-            self._set_ats_plugin_status(
-                f"Installed {len(installed_paths)} ATS plugin file(s). Restart ATS if it is already running.",
-                "success-label",
-            )
-        except Exception as exc:
-            self._set_ats_plugin_status(str(exc), "warning-label")
-        finally:
-            self.ats_plugin_button.set_sensitive(True)
+        self._install_plugins(
+            self.ats_plugin_button, self.ats_plugin_status, install_ats_plugins, "ATS"
+        )
 
     @staticmethod
     def _percent_to_led_bits(percent):
@@ -650,6 +852,11 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 led.remove_css_class("active")
 
     def _update_running_status(self):
+        self.rescan_button.set_sensitive(not self.running)
+        self.rescan_button.set_tooltip_text(
+            "Stop telemetry before rescanning" if self.running
+            else "Rescan for a connected wheel"
+        )
         if self.running:
             self.session_status_icon.set_from_icon_name("media-playback-start-symbolic")
             self.session_status_text.set_text("Running")
@@ -683,6 +890,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.wheel.leds_rpm(0)
         self.shared_rpm_percent = 0
         self._update_rpm_preview(0)
+        self._clear_message(MESSAGE_TAG_TELEMETRY)
         self.thread = None
         self.active_game_choice = None
         self.running = False
@@ -743,6 +951,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         game = self._create_game_from_choice(choice)
         if game is None:
             print("No game selected.")
+            self._show_message("No game selected.", MESSAGE_ERROR, MESSAGE_TAG_TELEMETRY)
             return False
 
         self.running = True
@@ -824,8 +1033,14 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                     self.shared_rpm_percent = 0
                     percent = 0
                     print("Telemetry connection established.")
+                    self._post_clear_message(MESSAGE_TAG_TELEMETRY)
                 except Exception as exc:
                     print(f"Telemetry connect failed: {exc}")
+                    self._post_message(
+                        f"Waiting for telemetry from {game.__class__.__name__}: {exc}",
+                        MESSAGE_WARNING,
+                        MESSAGE_TAG_TELEMETRY,
+                    )
                     self.shared_rpm_percent = 0
                     next_reconnect_time = now + RECONNECT_DELAY_SECONDS
                     time.sleep(0.05)
@@ -843,6 +1058,11 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 continue
             except Exception as exc:
                 print(f"Telemetry read failed, reconnecting: {exc}")
+                self._post_message(
+                    f"Telemetry read failed, reconnecting: {exc}",
+                    MESSAGE_WARNING,
+                    MESSAGE_TAG_TELEMETRY,
+                )
                 udp_socket = self._close_game_socket(game, udp_socket)
                 next_reconnect_time = time.monotonic() + RECONNECT_DELAY_SECONDS
                 continue
