@@ -208,7 +208,7 @@ APP_CSS = """
 class Widget(Gtk.Box):
     __gtype_name__ = 'Widget'
 
-    def __init__(self, name, image_path):
+    def __init__(self, name: str, image_path: str):
         super().__init__()
         self._name = name
 
@@ -218,11 +218,11 @@ class Widget(Gtk.Box):
     # The types matter: the dropdown search expression is only accepted by GTK
     # when the property it reads resolves to a string.
     @GObject.Property(type=str)
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @GObject.Property(type=str)
-    def image(self):
+    def image(self) -> str:
         return self._image
 
 
