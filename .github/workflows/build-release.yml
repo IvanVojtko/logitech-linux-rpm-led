@@ -42,8 +42,13 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev build-essential rpm zip unzip libarchive-tools zstd g++-mingw-w64-x86-64
+          sudo apt-get install -y ruby ruby-dev build-essential rpm zip unzip libarchive-tools zstd g++-mingw-w64-x86-64 gcc-mingw-w64-x86-64
           sudo gem install --no-document fpm
+
+      - name: Build ACC/ACR shared memory wrapper
+        shell: bash
+        run: |
+          make -C assetto-wrapper
 
       - name: Build ETS2/ATS telemetry plugins
         shell: bash
@@ -78,6 +83,7 @@ jobs:
           [ -f LICENSE ] && cp -a LICENSE "$PKGROOT/usr/share/doc/$APP_NAME/" || true
 
           [ -d scs-plugin ] && cp -a scs-plugin "$PKGROOT/usr/share/doc/$APP_NAME/" || true
+          [ -d assetto-wrapper ] && cp -a assetto-wrapper "$PKGROOT/usr/share/doc/$APP_NAME/" || true
           make install DESTDIR="$PWD/$PKGROOT" APPDIR="/opt/$APP_NAME"
 
       - name: Build .deb, .rpm, and Arch package

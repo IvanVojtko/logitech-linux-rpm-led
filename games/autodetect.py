@@ -66,6 +66,11 @@ GAME_SIGNATURES = (
         "process_tokens": ("_acc.exe", "ac2"),
     },
     {
+        "key": "assetto_corsa_rally",
+        "steam_app_ids": {"3917090"},
+        "process_tokens": ("_acr.exe", "assetto corsa rally"),
+    },
+    {
         "key": "beamng",
         "steam_app_ids": {"284160"},
         "process_tokens": ("beamng.drive.exe", "beamng.drive"),
