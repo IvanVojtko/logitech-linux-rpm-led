@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 STEAM_APP_ID_KEYS = (
@@ -133,18 +134,23 @@ def detect_game_from_processes(processes):
             continue
         for signature in GAME_SIGNATURES:
             if app_id in signature["steam_app_ids"]:
+                # print (f"Detected that {signature["key"]} is running, from its Steam AppID")
                 return signature["key"]
 
     for process in processes:
-        name = process.get("name", "").lower()
-        cmdline = process.get("cmdline", "").lower()
+        name = process.get("name", "")
+        cmdline = process.get("cmdline", "")
         haystack = f"{name} {cmdline}"
         for signature in GAME_SIGNATURES:
             for token in signature["process_tokens"]:
-                if token in haystack:
+                if _findWholeWord(token)(haystack):
+                    # print (f"Detected that {signature["key"]} is running, from its Token (exe or name)")
                     return signature["key"]
     return None
 
+@staticmethod
+def _findWholeWord(w):
+    return re.compile(r'(?<!-)\b{}(?![-=])\b'.format(w), flags=re.IGNORECASE).search
 
 def detect_running_game():
     proc_dir = Path("/proc")

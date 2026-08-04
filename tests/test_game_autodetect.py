@@ -11,6 +11,33 @@ class TestGameAutoDetect(unittest.TestCase):
         ]
         self.assertEqual(detect_game_from_processes(processes), "assetto_corsa")
 
+    def test_should_not_detect_acc_when_name_in_other_process(self) -> None:
+        processes = [
+            {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
+            {"name": "discord", "cmdline": "--enable-crash-reporter=9022b9dc-ac2--1-8f45-8f69e14bb8d5", "steam_app_id": "000000"},
+            {"name": "firefox-bin", "cmdline": "-initialChannelId {de789fbd--ac2-45bb-8b6d-36393222b64a}", "steam_app_id": "000000"},
+            {"name": "test_process1", "cmdline": "-ac2", "steam_app_id": "000000"},
+            {"name": "test_process2", "cmdline": "_ac2", "steam_app_id": "000000"},
+            {"name": "test_process1", "cmdline": "ac2-", "steam_app_id": "000000"},
+            {"name": "test_process2", "cmdline": "ac2_", "steam_app_id": "000000"},
+            {"name": "test_process3", "cmdline": "ac2=true", "steam_app_id": "000000"},
+        ]
+        self.assertIsNone(detect_game_from_processes(processes))
+
+    def test_should_detect_acc_when_token_assigned(self) -> None:
+        processes = [
+            {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
+            {"name": "test_process", "cmdline": " --exe=ac2 ", "steam_app_id": "000000"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "assetto_corsa_competizione")
+
+    def test_should_detect_acc_when_token_as_word(self) -> None:
+        processes = [
+            {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
+            {"name": "start_process", "cmdline": "--exe ac2", "steam_app_id": "000000"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "assetto_corsa_competizione")
+
     def test_detect_f1_23_by_process_token(self) -> None:
         processes = [
             {
@@ -20,6 +47,13 @@ class TestGameAutoDetect(unittest.TestCase):
             }
         ]
         self.assertEqual(detect_game_from_processes(processes), "f1_2023")
+
+    def test_detects_dirt_rally_2_by_name(self) -> None:
+        processes = [
+            {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
+            {"name": "dirt rally 2.0", "cmdline": "", "steam_app_id": "000000"},
+        ]
+        self.assertEqual(detect_game_from_processes(processes), "dirt_rally_2_0")
 
     def test_detects_ets2_by_steam_app_id(self) -> None:
         processes = [
