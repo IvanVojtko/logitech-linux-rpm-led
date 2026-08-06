@@ -148,9 +148,9 @@ def detect_game_from_processes(processes):
                     return signature["key"]
     return None
 
-@staticmethod
-def _findWholeWord(w):
-    return re.compile(r'(?<!-)\b{}(?![-=])\b'.format(w), flags=re.IGNORECASE).search
+def _findWholeWord(word):
+    escaped_word = re.escape(word)
+    return re.compile(r'(?<!-)\b{}(?![-=])\b'.format(escaped_word), flags=re.IGNORECASE).search
 
 def detect_running_game():
     proc_dir = Path("/proc")

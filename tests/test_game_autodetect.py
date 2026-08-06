@@ -55,6 +55,13 @@ class TestGameAutoDetect(unittest.TestCase):
         ]
         self.assertEqual(detect_game_from_processes(processes), "dirt_rally_2_0")
 
+    def test_does_not_detect_dirt_rally_2_by_name_when_point_replaced_by_X(self) -> None:
+        processes = [
+            {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
+            {"name": "dirt rally 2X0", "cmdline": "", "steam_app_id": "000000"},
+        ]
+        self.assertIsNone(detect_game_from_processes(processes))
+
     def test_detects_ets2_by_steam_app_id(self) -> None:
         processes = [
             {"name": "steam", "cmdline": "steam", "steam_app_id": ""},
