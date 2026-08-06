@@ -1143,7 +1143,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         try:
             disconnect = getattr(game, "disconnect", None)
             if callable(disconnect):
-                disconnect(udp_socket)
+                disconnect()
         except Exception:
             pass
         return False

@@ -41,7 +41,7 @@ class AssettoCorsaCompetizione:
                         try:
                             with open('/dev/shm/%s/%s' % (directory, shared_mem), 'r+b') as f:
                                 return mmap.mmap(f.fileno(), size, access=mmap.ACCESS_READ)
-                        except ValueError as ve:
+                        except OSError:
                             pass
                 except Exception as exc:
                     print("ERROR: Could not open memory location")
