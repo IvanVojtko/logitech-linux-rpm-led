@@ -19,6 +19,7 @@ from games.f12023 import F12023
 from games.dirt_rally_2_0 import DirtRally2
 from games.automobilista_2 import Automobilista2
 from games.assetto_corsa import AssettoCorsa
+from games.assetto_corsa_competizione import AssettoCorsaCompetizione
 from games.outgauge import OutGauge
 from games.truck_simulator import TruckSimulator
 from games.ts_plugin_installer import install_ets2_plugins
@@ -35,19 +36,20 @@ APP_DIR = Path(__file__).resolve().parent
 ICONS_DIR = APP_DIR / "icons"
 APPLICATION_ID = "io.github.IvanVojtko.LogitechRpmIndicator"
 
-AMS_2 =             0
-ASSETTO_CORSA =     1
-BEAMNG =            2
-DIRT_RALLY_2_0 =    3
-F1_2019 =           4
-F1_2020 =           5
-F1_2022 =           6
-F1_2023 =           7
-FORZA_HORIZON_5 =   8
-FORZA_HORIZON_6 =   9
-LIVE_FOR_SPEED =    10
-TRUCK_SIMULATOR =   11
-WRECKFEST_2 =       12
+AMS_2 =                         0
+ASSETTO_CORSA =                 1
+ASSETTO_CORSA_COMPETIZIONE =    2
+BEAMNG =                        3
+DIRT_RALLY_2_0 =                4
+TRUCK_SIMULATOR =               5
+F1_2019 =                       6
+F1_2020 =                       7
+F1_2022 =                       8
+F1_2023 =                       9
+FORZA_HORIZON_5 =               10
+FORZA_HORIZON_6 =               11
+LIVE_FOR_SPEED =                12
+WRECKFEST_2 =                   13
 
 DEFAULT_ASSETTO_MAX_RPM = 9000
 DEFAULT_BEAMNG_MAX_RPM = 6200
@@ -76,8 +78,10 @@ MESSAGE_TAG_TELEMETRY = "telemetry"
 GAME_KEY_TO_CHOICE = {
     "ams_2": AMS_2,
     "assetto_corsa": ASSETTO_CORSA,
+    "assetto_corsa_competizione": ASSETTO_CORSA_COMPETIZIONE,
     "beamng": BEAMNG,
     "dirt_rally_2_0": DIRT_RALLY_2_0,
+    "truck_simulator": TRUCK_SIMULATOR,
     "f1_2019": F1_2019,
     "f1_2020": F1_2020,
     "f1_2022": F1_2022,
@@ -85,7 +89,6 @@ GAME_KEY_TO_CHOICE = {
     "forza_horizon_5": FORZA_HORIZON_5,
     "forza_horizon_6": FORZA_HORIZON_6,
     "live_for_speed": LIVE_FOR_SPEED,
-    "truck_simulator": TRUCK_SIMULATOR,
     "wreckfest_2": WRECKFEST_2,
 }
 
@@ -205,7 +208,7 @@ APP_CSS = """
 class Widget(Gtk.Box):
     __gtype_name__ = 'Widget'
 
-    def __init__(self, name, image_path):
+    def __init__(self, name: str, image_path: str):
         super().__init__()
         self._name = name
 
@@ -215,11 +218,11 @@ class Widget(Gtk.Box):
     # The types matter: the dropdown search expression is only accepted by GTK
     # when the property it reads resolves to a string.
     @GObject.Property(type=str)
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @GObject.Property(type=str)
-    def image(self):
+    def image(self) -> str:
         return self._image
 
 
@@ -293,17 +296,18 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget = Gio.ListStore(item_type=Widget)
         self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path=icon_path("ams-2.png")))
         self.model_widget.append(Widget(name="Assetto Corsa", image_path=icon_path("assetto.png")))
+        self.model_widget.append(Widget(name="Assetto Corsa Competizione", image_path=icon_path("assetto-corsa-competizione.png")))
         self.model_widget.append(Widget(name="BeamNG", image_path=icon_path("beamng.png")))
         self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path=icon_path("dirt-rally-2-0.png")))
+        self.model_widget.append(Widget(name="Euro Truck Simulator 2 / American Truck Simulator",
+            image_path=icon_path("euro-truck-simulator-2.png")))
         self.model_widget.append(Widget(name="F1 2019", image_path=icon_path("f1-2019.png")))
         self.model_widget.append(Widget(name="F1 2020", image_path=icon_path("f1-2020.png")))
         self.model_widget.append(Widget(name="F1 2022", image_path=icon_path("f1-2022.png")))
         self.model_widget.append(Widget(name="F1 2023", image_path=icon_path("f1-2023.png")))
         self.model_widget.append(Widget(name="Forza Horizon 5", image_path=icon_path("forza-horizon-5.png")))
-        self.model_widget.append(Widget(name="Forza Horizon 6", image_path=icon_path("forza-horizon-5.png")))
+        self.model_widget.append(Widget(name="Forza Horizon 6", image_path=icon_path("forza-horizon-6.png")))
         self.model_widget.append(Widget(name="Live for Speed", image_path=icon_path("live-for-speed.png")))
-        self.model_widget.append(Widget(name="Euro Truck Simulator 2 / American Truck Simulator",
-            image_path=icon_path("euro-truck-simulator-2.png")))
         self.model_widget.append(Widget(name="Wreckfest 2", image_path=icon_path("wreckfest-2.png")))
         self.combo = Gtk.DropDown(model=self.model_widget)
         self.combo.set_hexpand(True)
@@ -933,6 +937,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.assetto_max_rpm = int(self.max_rpm_input.get_value())
             self._save_settings()
             return AssettoCorsa(max_rpm=self.assetto_max_rpm)
+        if choice == ASSETTO_CORSA_COMPETIZIONE:
+            return AssettoCorsaCompetizione()
         if choice == BEAMNG:
             self.beamng_max_rpm = int(self.max_rpm_input.get_value())
             self._save_settings()
@@ -1016,56 +1022,71 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             return
 
         udp_socket = None
+        shared_memory_opened = False
         percent = 0
         last_send = 0.0
         last_packet_time = 0.0
         next_reconnect_time = 0.0
         while not self.stop_event.is_set():
             now = time.monotonic()
-            if udp_socket is None:
-                if now < next_reconnect_time:
-                    time.sleep(0.05)
-                    continue
-                try:
-                    udp_socket = game.connect()
-                    udp_socket.settimeout(0.2)
-                    last_packet_time = time.monotonic()
-                    self.shared_rpm_percent = 0
-                    percent = 0
-                    print("Telemetry connection established.")
-                    self._post_clear_message(MESSAGE_TAG_TELEMETRY)
-                except Exception as exc:
-                    print(f"Telemetry connect failed: {exc}")
-                    self._post_message(
-                        f"Waiting for telemetry from {game.__class__.__name__}: {exc}",
-                        MESSAGE_WARNING,
-                        MESSAGE_TAG_TELEMETRY,
-                    )
-                    self.shared_rpm_percent = 0
-                    next_reconnect_time = now + RECONNECT_DELAY_SECONDS
-                    time.sleep(0.05)
-                    continue
 
-            try:
-                data = game.read_data(udp_socket=udp_socket)
-            except socket.timeout:
-                if (
-                    time.monotonic() - last_packet_time
-                    >= RECONNECT_INACTIVITY_SECONDS
-                ):
+            # Shared memory games
+            if choice == ASSETTO_CORSA_COMPETIZIONE:
+                if shared_memory_opened is False:
+                    if now < next_reconnect_time:
+                        time.sleep(0.05)
+                        continue
+                    try:
+                        game.connect()
+                        shared_memory_opened = True
+                        last_packet_time = time.monotonic()
+                        self.shared_rpm_percent = 0
+                        percent = 0
+                        print("Telemetry memory location(s) opened.")
+                        self._post_clear_message(MESSAGE_TAG_TELEMETRY)
+                    except Exception as exc:
+                        next_reconnect_time = now + RECONNECT_DELAY_SECONDS
+                        self._handle_telemetry_connect_failure(game, exc)
+                        continue
+
+                try:
+                    data = game.read_data()
+                except Exception as exc:
+                    self._handle_telemetry_read_failure(exc)
+                    shared_memory_opened = WheelRPMWindow._close_game_shared_memory(game, shared_memory_opened)
+                    next_reconnect_time = time.monotonic() + RECONNECT_DELAY_SECONDS
+                    continue
+            # UDP packets games
+            else:
+                if udp_socket is None:
+                    if now < next_reconnect_time:
+                        time.sleep(0.05)
+                        continue
+                    try:
+                        udp_socket = game.connect()
+                        udp_socket.settimeout(0.2)
+                        last_packet_time = time.monotonic()
+                        self.shared_rpm_percent = 0
+                        percent = 0
+                        print("Telemetry connection established.")
+                        self._post_clear_message(MESSAGE_TAG_TELEMETRY)
+                    except Exception as exc:
+                        next_reconnect_time = now + RECONNECT_DELAY_SECONDS
+                        self._handle_telemetry_connect_failure(game, exc)
+                        continue
+
+                try:
+                    data = game.read_data(udp_socket=udp_socket)
+                except socket.timeout:
+                    if (time.monotonic() - last_packet_time >= RECONNECT_INACTIVITY_SECONDS):
+                        udp_socket = WheelRPMWindow._close_game_socket(game, udp_socket)
+                        next_reconnect_time = time.monotonic() + RECONNECT_DELAY_SECONDS
+                    continue
+                except Exception as exc:
+                    self._handle_telemetry_read_failure(exc)
                     udp_socket = self._close_game_socket(game, udp_socket)
                     next_reconnect_time = time.monotonic() + RECONNECT_DELAY_SECONDS
-                continue
-            except Exception as exc:
-                print(f"Telemetry read failed, reconnecting: {exc}")
-                self._post_message(
-                    f"Telemetry read failed, reconnecting: {exc}",
-                    MESSAGE_WARNING,
-                    MESSAGE_TAG_TELEMETRY,
-                )
-                udp_socket = self._close_game_socket(game, udp_socket)
-                next_reconnect_time = time.monotonic() + RECONNECT_DELAY_SECONDS
-                continue
+                    continue
 
             last_packet_time = time.monotonic()
             try:
@@ -1075,7 +1096,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 else:
                     percent = game.get_rpm_percent(data, percent)
             except Exception as exc:
-                print(f"Telemetry parse failed, ignoring packet: {exc}")
+                print(f"Telemetry parse failed, ignoring packet/data: {exc}")
                 continue
             clamped_percent = max(0, min(int(percent), 100))
             self.shared_rpm_percent = clamped_percent
@@ -1084,6 +1105,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 if wheel:
                     wheel.leds_rpm(clamped_percent if clamped_percent != 0 else 0)
                 last_send = now
+            # Avoid using too much CPU for no reason
+            if choice == ASSETTO_CORSA_COMPETIZIONE:    
+                time.sleep(0.05)
 
         self.shared_rpm_percent = 0
         try:
@@ -1091,7 +1115,38 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 wheel.leds_rpm(0)
         except Exception:
             pass
-        self._close_game_socket(game, udp_socket)
+        WheelRPMWindow._close_game_shared_memory(game, shared_memory_opened)
+        WheelRPMWindow._close_game_socket(game, udp_socket)
+
+    def _handle_telemetry_connect_failure(self, game, exc):
+        print(f"Telemetry connect failed: {exc}")
+        self._post_message(
+            f"Waiting for telemetry from {game.__class__.__name__}: {exc}",
+            MESSAGE_WARNING,
+            MESSAGE_TAG_TELEMETRY,
+        )
+        self.shared_rpm_percent = 0
+        time.sleep(0.05)
+
+    def _handle_telemetry_read_failure(self, exc):
+        print(f"Telemetry read failed, reopening shared memory: {exc}")
+        self._post_message(
+            f"Telemetry read failed, reconnecting: {exc}",
+            MESSAGE_WARNING,
+            MESSAGE_TAG_TELEMETRY,
+        )
+
+    @staticmethod
+    def _close_game_shared_memory(game, shared_memory_opened):
+        if not shared_memory_opened:
+            return False
+        try:
+            disconnect = getattr(game, "disconnect", None)
+            if callable(disconnect):
+                disconnect()
+        except Exception:
+            pass
+        return False
 
     @staticmethod
     def _close_game_socket(game, udp_socket):

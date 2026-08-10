@@ -61,6 +61,11 @@ GAME_SIGNATURES = (
         "process_tokens": ("assettocorsa.exe", "assetto corsa"),
     },
     {
+        "key": "assetto_corsa_competizione",
+        "steam_app_ids": {"805550"},
+        "process_tokens": ("_acc.exe", "ac2"),
+    },
+    {
         "key": "beamng",
         "steam_app_ids": {"284160"},
         "process_tokens": ("beamng.drive.exe", "beamng.drive"),
