@@ -4,7 +4,13 @@ import unittest
 from unittest import mock
 
 from wheels.base import BaseWheel
-from wheels.hid_backend import HidBackendUnavailable, enumerate_devices, is_hid_error, open_device
+from wheels.hid_backend import (
+    HidBackendUnavailable,
+    backend_error,
+    enumerate_devices,
+    is_hid_error,
+    open_device,
+)
 
 
 class TestHidBackend(unittest.TestCase):
@@ -27,6 +33,20 @@ class TestHidBackend(unittest.TestCase):
         ):
             self.assertTrue(is_hid_error(HidBackendUnavailable("missing")))
             self.assertTrue(is_hid_error(OSError("permission denied")))
+
+    def test_backend_error_reports_reason_when_hid_module_missing(self) -> None:
+        sys.modules.pop("hid", None)
+        with mock.patch(
+            "wheels.hid_backend.importlib.import_module",
+            side_effect=ImportError("Unable to load any of the following libraries: ..."),
+        ):
+            self.assertIn("Unable to load", backend_error())
+
+    def test_backend_error_is_none_when_hid_module_works(self) -> None:
+        fake_hid = types.ModuleType("hid")
+        sys.modules["hid"] = fake_hid
+
+        self.assertIsNone(backend_error())
 
     def test_enumerate_devices_delegates_to_hid_module(self) -> None:
         fake_hid = types.ModuleType("hid")

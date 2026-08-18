@@ -102,17 +102,26 @@ logitech-rpm-indicator
 - Python 3
 - `pip`
 - GTK 4, libadwaita, and GObject introspection development packages
+- The native `hidapi` library (the `hid` package installed via `requirements.txt`
+  is just a ctypes wrapper around it; without it the app can't see any wheel
+  and won't report why)
 
 On Debian/Ubuntu:
 
 ```bash
-sudo apt install python3-dev libcairo2-dev libgirepository-2.0-dev gir1.2-gtk-4.0 gir1.2-adw-1
+sudo apt install python3-dev libcairo2-dev libgirepository-2.0-dev gir1.2-gtk-4.0 gir1.2-adw-1 libhidapi-hidraw0
 ```
 
 On Fedora:
 
 ```bash
-sudo dnf install python3-devel cairo-devel gobject-introspection-devel gtk4-devel libadwaita-devel
+sudo dnf install python3-devel cairo-devel gobject-introspection-devel gtk4-devel libadwaita-devel hidapi
+```
+
+On Gentoo:
+
+```bash
+sudo emerge --ask dev-libs/hidapi
 ```
 
 #### Steps

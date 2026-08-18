@@ -715,12 +715,25 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.wheel.close()
             self.wheel = None
 
-        self.wheel, failures = find_wheel_with_failures()
+        self.wheel, failures, hid_backend_error = find_wheel_with_failures()
         self._update_wheel_status()
 
         if self.wheel:
             if announce_success:
                 self._show_message("Wheel detected.", MESSAGE_SUCCESS, MESSAGE_TAG_WHEEL)
+            return
+
+        if hid_backend_error:
+            self._show_message(
+                f"HID backend unavailable: {hid_backend_error} "
+                "The 'hid' Python package is installed but can't load the native "
+                "hidapi library it depends on -- install it via your distro's "
+                "package manager (e.g. 'dev-libs/hidapi' on Gentoo, "
+                "'libhidapi-hidraw0' on Debian/Ubuntu, 'hidapi' on Fedora/Arch) "
+                "and press Rescan.",
+                MESSAGE_ERROR,
+                MESSAGE_TAG_WHEEL,
+            )
             return
 
         if failures:

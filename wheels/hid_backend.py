@@ -42,6 +42,22 @@ def enumerate_devices() -> list[dict[str, Any]]:
     return hid.enumerate()
 
 
+def backend_error() -> str | None:
+    """Return why the `hid` backend can't be used, or None if it works fine.
+
+    `enumerate_devices()` treats a missing/broken backend the same as "no wheel
+    plugged in" so callers don't have to special-case it just to enumerate. But
+    that means a broken backend (e.g. the `hid` package installed without the
+    native hidapi library behind it) looks identical to "nothing connected" --
+    this lets the UI tell the two apart and give the user the right advice.
+    """
+    try:
+        _hid()
+    except HidBackendUnavailable as error:
+        return str(error)
+    return None
+
+
 def open_device(vendor_id: int, product_id: int) -> Any:
     hid = _hid()
     if hasattr(hid, "Device"):

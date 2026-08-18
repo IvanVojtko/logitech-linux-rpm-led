@@ -88,9 +88,10 @@ class TestFindWheelFailures(unittest.TestCase):
             "wheels.detect.enumerate_devices",
             return_value=[{"vendor_id": LOGITECH, "product_id": 0xC266}],
         ), mock.patch("wheels.base.open_device", side_effect=OSError("Permission denied")):
-            wheel, failures = find_wheel_with_failures()
+            wheel, failures, backend_error = find_wheel_with_failures()
 
         self.assertIsNone(wheel)
+        self.assertIsNone(backend_error)
         self.assertEqual(len(failures), 1)
         name, product_id, error = failures[0]
         self.assertEqual(name, "G923ps")
@@ -98,18 +99,35 @@ class TestFindWheelFailures(unittest.TestCase):
         self.assertIn("Permission denied", str(error))
 
     def test_no_devices_at_all_reports_no_failures(self) -> None:
-        with mock.patch("wheels.detect.enumerate_devices", return_value=[]):
-            self.assertEqual(find_wheel_with_failures(), (None, []))
+        with mock.patch("wheels.detect.enumerate_devices", return_value=[]), mock.patch(
+            "wheels.detect.backend_error", return_value=None
+        ):
+            self.assertEqual(find_wheel_with_failures(), (None, [], None))
+
+    def test_broken_hid_backend_is_reported_instead_of_looking_like_no_wheel(self) -> None:
+        # A `hid` package that imports fine in the test environment but can't
+        # load its native hidapi library (missing dev-libs/hidapi on Gentoo,
+        # for example) must not be indistinguishable from "nothing plugged in".
+        with mock.patch("wheels.detect.enumerate_devices", return_value=[]), mock.patch(
+            "wheels.detect.backend_error",
+            return_value="Unable to load any of the following libraries: ...",
+        ):
+            wheel, failures, backend_error = find_wheel_with_failures()
+
+        self.assertIsNone(wheel)
+        self.assertEqual(failures, [])
+        self.assertIn("Unable to load", backend_error)
 
     def test_a_detected_wheel_reports_no_failures(self) -> None:
         with mock.patch(
             "wheels.detect.enumerate_devices",
             return_value=[{"vendor_id": LOGITECH, "product_id": 0xC266}],
         ), mock.patch("wheels.base.open_device", side_effect=lambda v, p: FakeDevice(p)):
-            wheel, failures = find_wheel_with_failures()
+            wheel, failures, backend_error = find_wheel_with_failures()
 
         self.assertIsInstance(wheel, G923ps)
         self.assertEqual(failures, [])
+        self.assertIsNone(backend_error)
 
 
 class TestConnectCleanup(unittest.TestCase):
