@@ -1,7 +1,8 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * SPDX-FileCopyrightText: 2021 gotzl <matthias.gorzellik@gmail.com>
- * SPDX-FileContributor: 2026 modified by flodavid <fl.david.53@gmail.com> to support any exe name and subpaths
+ * SPDX-FileCopyrightText:  2021 gotzl <matthias.gorzellik@gmail.com>
+ * SPDX-FileContributor:    2026 modified by flodavid <fl.david.53@gmail.com> to support any exe name and subpaths, improve
+ *                          error handling and fix potential crash while ending
  *
  * For initial version, see: https://github.com/gotzl/pyacc/blob/53070bd90134727276d28a53f01cfd4db9a8e8e4/acc_wrapper.c
  */
@@ -32,7 +33,6 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
 
 int main(int argc, char** argv) {
     WIN32_FIND_DATA fdata;
-    LPDWORD ret;
     PROCESS_INFORMATION acr_pi;
     STARTUPINFO si = {sizeof(si)};
 
@@ -83,12 +83,13 @@ int main(int argc, char** argv) {
         }
     }
 
-    for(int i = 1; i < argc; i++) {
+    for(int i = 1; i < argc && strlen(ARGS) + strlen(argv[i]) < 255; i++) {
         _tcscat(ARGS, " ");
         _tcscat(ARGS, argv[i]);
     }
 
     int n_mappings = 3;
+    int initialized_mappings = 0;
     const TCHAR* mappings[] = {
         TEXT("acpmf_physics"),
         TEXT("acpmf_graphics"),
@@ -98,7 +99,7 @@ int main(int argc, char** argv) {
 
     acr_pi.dwProcessId = 0;
 
-    boolean exe_found = fileExists(EXE_PATH);
+    BOOL exe_found = fileExists(EXE_PATH);
     if (!exe_found) {
         printf("%s was not found! The game will not be launched.\n", EXE_PATH);
     } else {
@@ -122,15 +123,20 @@ int main(int argc, char** argv) {
         fd[i] = CreateFile(shmName, GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ|FILE_SHARE_WRITE,
                                 NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (fd[i] == INVALID_HANDLE_VALUE) {
-            printf("Could not open %s:\n%s\n", shmName, strerror(GetLastError()));
+            printf("Could not open %s:\n", shmName);
+            FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
+                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), err, 255, NULL);
             goto wait;
         }
         maph[i] = CreateFileMapping(fd[i], NULL, PAGE_READWRITE, 0, 2048, szName);
         if (maph[i] == NULL) {
-            printf("Could not create mapping for %s: %s\n", szName, strerror(GetLastError()));
+            printf("Could not create mapping for %s:\n", szName);
+            FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
+                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), err, 255, NULL);
             CloseHandle(fd[i]);
             goto wait;
         }
+        ++initialized_mappings;
         printf("Bridged /dev/shm/%s to Win32 named mapping \"%s\"\n", shmName, szName);
     }
 
@@ -150,8 +156,8 @@ wait:
             Sleep(1000);
         }
     }
-
-    for (int i=0; i < n_mappings; i++) {
+    // Remove initialized mappings only
+    for (int i=0; i < initialized_mappings; i++) {
         if (maph[i] != NULL) CloseHandle( maph[i] );
         CloseHandle( fd[i] );
         DeleteFile( mappings[i] );

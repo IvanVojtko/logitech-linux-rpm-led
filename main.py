@@ -839,7 +839,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         try:
             state, installed_paths = status_query()
         except Exception as exc:
-            self._set_install_status(label, f"Could not check the {"wrapper" if is_wrapper else "plugin"}: {exc}",
+            self._set_install_status(label, f"Could not check the {'wrapper' if is_wrapper else 'plugin'}: {exc}",
                 "warning-label")
             return
 
@@ -887,13 +887,13 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             installed_paths = installer(app_dir=Path(__file__).resolve().parent)
             if not installed_paths:
                 self._set_install_status(
-                    label, f"No {short_name} {"wrapper" if is_wrapper else "plugin"} files were installed.",
+                    label, f"No {short_name} {'wrapper' if is_wrapper else 'plugin'} files were installed.",
                     "warning-label"
                 )
                 return
             self._set_install_status(
                 label,
-                f"Installed {len(installed_paths)} {short_name} {"wrapper" if is_wrapper else "plugin"} file(s). "
+                f"Installed {len(installed_paths)} {short_name} {'wrapper' if is_wrapper else 'plugin'} file(s). "
                 f"Restart {short_name} if it is already running.",
                 "success-label",
             )

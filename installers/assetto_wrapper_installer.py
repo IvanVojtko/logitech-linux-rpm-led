@@ -18,9 +18,11 @@ WRAPPER_FILE_NAME = "acpmf_wrapper.exe"
 def find_wrapper_binary(app_dir=None):
     base_dir = Path(app_dir) if app_dir else Path(__file__).resolve().parents[1]
     wrapper_dir = base_dir / WRAPPER_DIR_NAME
-    binaries = []
     source = wrapper_dir / WRAPPER_FILE_NAME
-    return source
+    if source.exists():
+        return source
+    else:
+        return None
 
 
 GAME_MISSING = "game-missing"
@@ -65,7 +67,7 @@ def install_ac_wrapper(app_id, dir_name, subdir_path, exe_name, steam_roots=None
         raise FileNotFoundError(dir_name + " installation was not found in Steam libraries.")
 
     wrapper_binary = find_wrapper_binary(app_dir)
-    if not wrapper_binary:
+    if wrapper_binary is None:
         raise FileNotFoundError("No built " + dir_name + " plugin binaries were found in assetto-wrapper/.")
 
     installed_paths = []
@@ -74,7 +76,7 @@ def install_ac_wrapper(app_id, dir_name, subdir_path, exe_name, steam_roots=None
         destination = exe_destination(install_dir, subdir_path, "_" + exe_name)
         destination.parent.mkdir(parents=True, exist_ok=True)
         # Rename original game executable if it is not the case already
-        if not Path(destination).exists:
+        if not Path(destination).exists():
             shutil.move(exe_location, destination)
         # Replace the game executable by the wrapper
         shutil.copy2(wrapper_binary, exe_location)
