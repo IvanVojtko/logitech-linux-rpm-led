@@ -13,7 +13,8 @@ PYTHON ?= python3
 PYTHON_EXECUTABLE ?= /usr/bin/python3
 
 .PHONY: all check install uninstall update-desktop-caches test \
-	build-ets2-plugin-linux build-ets2-plugin-windows clean
+	build-ets2-plugin-linux build-ets2-plugin-windows build-assetto-wrapper \
+	clean
 
 all:
 	@printf 'This is a Python application. Run "make install" to install it.\n'
@@ -33,8 +34,10 @@ install: check
 	$(INSTALL) -d \
 		$(DESTDIR)$(BINDIR) \
 		$(DESTDIR)$(APPDIR)/games \
+		$(DESTDIR)$(APPDIR)/installers \
 		$(DESTDIR)$(APPDIR)/wheels \
 		$(DESTDIR)$(APPDIR)/icons \
+		$(DESTDIR)$(APPDIR)/assetto-wrapper \
 		$(DESTDIR)$(APPDIR)/scs-plugin \
 		$(DESTDIR)$(DATADIR)/applications \
 		$(DESTDIR)$(DOCDIR) \
@@ -47,9 +50,17 @@ install: check
 	chmod 0755 $(DESTDIR)$(BINDIR)/$(APP_NAME)
 	$(INSTALL) -m 0644 main.py $(DESTDIR)$(APPDIR)/
 	$(INSTALL) -m 0644 games/*.py $(DESTDIR)$(APPDIR)/games/
+	$(INSTALL) -m 0644 installers/*.py $(DESTDIR)$(APPDIR)/installers/
 	$(INSTALL) -m 0644 wheels/*.py $(DESTDIR)$(APPDIR)/wheels/
 	$(INSTALL) -m 0644 icons/* $(DESTDIR)$(APPDIR)/icons/
-	$(INSTALL) -m 0644 scs-plugin/Makefile scs-plugin/*.cpp $(DESTDIR)$(APPDIR)/scs-plugin/
+	$(INSTALL) -m 0644 assetto-wrapper/Makefile assetto-wrapper/*.c \
+		$(DESTDIR)$(APPDIR)/assetto-wrapper/
+	if [ -f "assetto-wrapper/acpmf_wrapper.exe" ]; then \
+		$(INSTALL) -m 0755 "assetto-wrapper/acpmf_wrapper.exe" \
+			$(DESTDIR)$(APPDIR)/assetto-wrapper/; \
+	fi;
+	$(INSTALL) -m 0644 scs-plugin/Makefile scs-plugin/*.cpp \
+		$(DESTDIR)$(APPDIR)/scs-plugin/
 	@for plugin in scs-plugin/*.so scs-plugin/*.dll; do \
 		if [ -f "$$plugin" ]; then \
 			$(INSTALL) -m 0755 "$$plugin" $(DESTDIR)$(APPDIR)/scs-plugin/; \
@@ -87,5 +98,9 @@ build-ets2-plugin-linux:
 build-ets2-plugin-windows:
 	$(MAKE) -C scs-plugin windows
 
+build-assetto-wrapper:
+	$(MAKE) -C assetto-wrapper
+
 clean:
 	$(MAKE) -C scs-plugin clean
+	$(MAKE) -C assetto-wrapper clean

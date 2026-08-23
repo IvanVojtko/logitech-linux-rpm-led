@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    for(int i = 1; i < argc && strlen(ARGS) + strlen(argv[i]) < 255; i++) {
+    for(int i = 1; i < argc && strlen(ARGS) + strlen(argv[i]) < 254; i++) {
         _tcscat(ARGS, " ");
         _tcscat(ARGS, argv[i]);
     }
@@ -123,16 +123,22 @@ int main(int argc, char** argv) {
         fd[i] = CreateFile(shmName, GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ|FILE_SHARE_WRITE,
                                 NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (fd[i] == INVALID_HANDLE_VALUE) {
-            printf("Could not open %s:\n", shmName);
+            char err[255];
+            memset(err, 0, 255);
             FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
-                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), err, 255, NULL);
+                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), err, 254, NULL);
+            printf("Could not open %s: %s\n", shmName, err);
+            
             goto wait;
         }
         maph[i] = CreateFileMapping(fd[i], NULL, PAGE_READWRITE, 0, 2048, szName);
         if (maph[i] == NULL) {
-            printf("Could not create mapping for %s:\n", szName);
+            char err[255];
+            memset(err, 0, 255);
             FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
-                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), err, 255, NULL);
+                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), err, 254, NULL);
+            printf("Could not create mapping for %s:\n%s\n", szName, err);
+
             CloseHandle(fd[i]);
             goto wait;
         }

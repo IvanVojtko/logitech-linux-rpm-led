@@ -2,7 +2,7 @@ MINGW_x86_64 = x86_64-w64-mingw32
 MINGW_i686 = i686-w64-mingw32
 
 .DEFAULT_GOAL = acpmf_wrapper.exe
-.PHONY: clean
+.PHONY: acpmf_wrapper.exe acpmf_wrapper_x86.exe clean
 
 acpmf_wrapper.exe: acpmf_wrapper.c
 	$(MINGW_x86_64)-gcc $< -o $@ -O0 -msse2 # -shared-libgcc
