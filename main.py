@@ -19,16 +19,19 @@ from games.f12023 import F12023
 from games.dirt_rally_2_0 import DirtRally2
 from games.automobilista_2 import Automobilista2
 from games.assetto_corsa import AssettoCorsa
-from games.assetto_corsa_competizione import AssettoCorsaCompetizione
+from games.assetto_corsa_shared_memory import AssettoCorsaSharedMemory
 from games.outgauge import OutGauge
 from games.truck_simulator import TruckSimulator
-from games.ts_plugin_installer import install_ets2_plugins
-from games.ts_plugin_installer import install_ats_plugins
-from games.ts_plugin_installer import ets2_plugin_status as query_ets2_plugin_status
-from games.ts_plugin_installer import ats_plugin_status as query_ats_plugin_status
-from games.ts_plugin_installer import GAME_MISSING, PLUGIN_INSTALLED
 from games.wreckfest_2 import Wreckfest2
 from games.autodetect import detect_running_game
+from installers.assetto_wrapper_installer import install_acc_wrapper, install_acr_wrapper
+from installers.assetto_wrapper_installer import acc_wrapper_status as query_acc_wrapper_status
+from installers.assetto_wrapper_installer import acr_wrapper_status as query_acr_wrapper_status
+from installers.assetto_wrapper_installer import GAME_MISSING, WRAPPER_INSTALLED
+from installers.ts_plugin_installer import install_ets2_plugins, install_ats_plugins
+from installers.ts_plugin_installer import ets2_plugin_status as query_ets2_plugin_status
+from installers.ts_plugin_installer import ats_plugin_status as query_ats_plugin_status
+from installers.ts_plugin_installer import GAME_MISSING, PLUGIN_INSTALLED
 from wheels.base import BaseWheel
 from wheels.detect import find_wheel_with_failures, PERMISSION_HINT
 
@@ -39,19 +42,21 @@ APPLICATION_ID = "io.github.IvanVojtko.LogitechRpmIndicator"
 AMS_2 =                         0
 ASSETTO_CORSA =                 1
 ASSETTO_CORSA_COMPETIZIONE =    2
-BEAMNG =                        3
-DIRT_RALLY_2_0 =                4
-TRUCK_SIMULATOR =               5
-F1_2019 =                       6
-F1_2020 =                       7
-F1_2022 =                       8
-F1_2023 =                       9
-FORZA_HORIZON_5 =               10
-FORZA_HORIZON_6 =               11
-LIVE_FOR_SPEED =                12
-WRECKFEST_2 =                   13
+ASSETTO_CORSA_RALLY =           3
+BEAMNG =                        4
+DIRT_RALLY_2_0 =                5
+TRUCK_SIMULATOR =               6
+F1_2019 =                       7
+F1_2020 =                       8
+F1_2022 =                       9
+F1_2023 =                       10
+FORZA_HORIZON_5 =               11
+FORZA_HORIZON_6 =               12
+LIVE_FOR_SPEED =                13
+WRECKFEST_2 =                   14
 
 DEFAULT_ASSETTO_MAX_RPM = 9000
+DEFAULT_ASSETTO_RALLY_MAX_RPM = 6700
 DEFAULT_BEAMNG_MAX_RPM = 6200
 DEFAULT_LIVE_FOR_SPEED_MAX_RPM = 8000
 MIN_MAX_RPM = 1000
@@ -79,6 +84,7 @@ GAME_KEY_TO_CHOICE = {
     "ams_2": AMS_2,
     "assetto_corsa": ASSETTO_CORSA,
     "assetto_corsa_competizione": ASSETTO_CORSA_COMPETIZIONE,
+    "assetto_corsa_rally": ASSETTO_CORSA_RALLY,
     "beamng": BEAMNG,
     "dirt_rally_2_0": DIRT_RALLY_2_0,
     "truck_simulator": TRUCK_SIMULATOR,
@@ -244,6 +250,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.last_auto_detect_check = 0.0
         self.settings_path = self._get_settings_path()
         self.assetto_max_rpm = DEFAULT_ASSETTO_MAX_RPM
+        self.assetto_rally_max_rpm = DEFAULT_ASSETTO_RALLY_MAX_RPM
         self.beamng_max_rpm = DEFAULT_BEAMNG_MAX_RPM
         self.live_for_speed_max_rpm = DEFAULT_LIVE_FOR_SPEED_MAX_RPM
         self.shift_light_thresholds = tuple(BaseWheel.DEFAULT_SHIFT_LIGHT_THRESHOLDS)
@@ -297,6 +304,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path=icon_path("ams-2.png")))
         self.model_widget.append(Widget(name="Assetto Corsa", image_path=icon_path("assetto.png")))
         self.model_widget.append(Widget(name="Assetto Corsa Competizione", image_path=icon_path("assetto-corsa-competizione.png")))
+        self.model_widget.append(Widget(name="Assetto Corsa Rally", image_path=icon_path("assetto-corsa-rally.png")))
         self.model_widget.append(Widget(name="BeamNG", image_path=icon_path("beamng.png")))
         self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path=icon_path("dirt-rally-2-0.png")))
         self.model_widget.append(Widget(name="Euro Truck Simulator 2 / American Truck Simulator",
@@ -396,6 +404,30 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         ats_plugin_box.append(self.ats_plugin_button)
         ats_plugin_box.append(self.ats_plugin_status)
         self.ts_plugin_boxes.append(ats_plugin_box)
+
+        self.acc_wrapper_button = Gtk.Button(label="Install ACC Shared Memory wrapper")
+        self.acc_wrapper_button.add_css_class("action-button")
+        self.acc_wrapper_button.connect("clicked", self._on_acc_exe_install_clicked)
+        self.acc_wrapper_status = Gtk.Label()
+        self.acc_wrapper_status.set_xalign(0)
+        self.acc_wrapper_status.set_wrap(True)
+        self.acc_wrapper_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.acc_wrapper_box.set_visible(False)
+        self.acc_wrapper_box.append(self.acc_wrapper_button)
+        self.acc_wrapper_box.append(self.acc_wrapper_status)
+        game_panel.append(self.acc_wrapper_box)
+
+        self.acr_wrapper_button = Gtk.Button(label="Install ACR Shared Memory wrapper")
+        self.acr_wrapper_button.add_css_class("action-button")
+        self.acr_wrapper_button.connect("clicked", self._on_acr_exe_install_clicked)
+        self.acr_wrapper_status = Gtk.Label()
+        self.acr_wrapper_status.set_xalign(0)
+        self.acr_wrapper_status.set_wrap(True)
+        self.acr_wrapper_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.acr_wrapper_box.set_visible(False)
+        self.acr_wrapper_box.append(self.acr_wrapper_button)
+        self.acr_wrapper_box.append(self.acr_wrapper_status)
+        game_panel.append(self.acr_wrapper_box)
 
         # Restore the saved selection only once every widget the handler touches
         # exists, otherwise "notify::selected" fires against a half-built window.
@@ -602,6 +634,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             value_assetto_max_rpm = parser.getint(
                 "assetto_corsa", "max_rpm", fallback=DEFAULT_ASSETTO_MAX_RPM
             )
+            value_assetto_rally_max_rpm = parser.getint(
+                "assetto_corsa_rally", "max_rpm", fallback=DEFAULT_ASSETTO_RALLY_MAX_RPM
+            )
             value_beamng_max_rpm = parser.getint(
                 "beamng", "max_rpm", fallback=DEFAULT_BEAMNG_MAX_RPM
             )
@@ -609,6 +644,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 "live_for_speed", "max_rpm", fallback=DEFAULT_LIVE_FOR_SPEED_MAX_RPM
             )
             self.assetto_max_rpm = max(MIN_MAX_RPM, min(value_assetto_max_rpm, MAX_MAX_RPM))
+            self.assetto_rally_max_rpm = max(MIN_MAX_RPM, min(value_assetto_rally_max_rpm, MAX_MAX_RPM))
             self.beamng_max_rpm = max(MIN_MAX_RPM, min(value_beamng_max_rpm, MAX_MAX_RPM))
             self.live_for_speed_max_rpm = max(MIN_MAX_RPM, min(value_live_for_speed_max_rpm, MAX_MAX_RPM))
             shift_thresholds_raw = parser.get(
@@ -628,6 +664,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             "last_selected_game": str(int(self.last_selected_game_choice)),
         }
         parser["assetto_corsa"] = {"max_rpm": str(int(self.assetto_max_rpm))}
+        parser["assetto_corsa_rally"] = {"max_rpm": str(int(self.assetto_rally_max_rpm))}
         parser["beamng"] = {"max_rpm": str(int(self.beamng_max_rpm))}
         parser["live_for_speed"] = {"max_rpm": str(int(self.live_for_speed_max_rpm))}
         parser["shift_lights"] = {
@@ -644,6 +681,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         selected_choice = self.combo.get_selected()
         if selected_choice == ASSETTO_CORSA:
             self.assetto_max_rpm = int(self.max_rpm_input.get_value())
+        if selected_choice == ASSETTO_CORSA_RALLY:
+            self.assetto_rally_max_rpm = int(self.max_rpm_input.get_value())
         elif selected_choice == BEAMNG:
             self.beamng_max_rpm = int(self.max_rpm_input.get_value())
         elif selected_choice == LIVE_FOR_SPEED:
@@ -753,6 +792,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         if selected_choice == ASSETTO_CORSA:
             self.max_rpm_label.set_text("Assetto Max RPM")
             self.max_rpm_input.set_value(self.assetto_max_rpm)
+        if selected_choice == ASSETTO_CORSA_RALLY:
+            self.max_rpm_label.set_text("Assetto Rally Max RPM")
+            self.max_rpm_input.set_value(self.assetto_rally_max_rpm)
         elif selected_choice == BEAMNG:
             self.max_rpm_label.set_text("BeamNG Max RPM")
             self.max_rpm_input.set_value(self.beamng_max_rpm)
@@ -761,12 +803,23 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.max_rpm_input.set_value(self.live_for_speed_max_rpm)
 
         self.max_rpm_row.set_visible(
-            selected_choice == ASSETTO_CORSA or selected_choice == BEAMNG or selected_choice == LIVE_FOR_SPEED)
+            selected_choice == ASSETTO_CORSA or selected_choice == ASSETTO_CORSA_RALLY or selected_choice == BEAMNG
+            or selected_choice == LIVE_FOR_SPEED)
 
         showing_ts_plugins = selected_choice == TRUCK_SIMULATOR
         self.ts_plugin_boxes.set_visible(showing_ts_plugins)
         if showing_ts_plugins:
             self._refresh_ts_plugin_statuses()
+        
+        showing_acc_install = selected_choice == ASSETTO_CORSA_COMPETIZIONE
+        self.acc_wrapper_box.set_visible(showing_acc_install)
+        if showing_acc_install:
+            self._refresh_acc_wrapper_status()
+
+        showing_acr_install = selected_choice == ASSETTO_CORSA_RALLY
+        self.acr_wrapper_box.set_visible(showing_acr_install)
+        if showing_acr_install:
+            self._refresh_acr_wrapper_status()
 
         if self._is_valid_choice(selected_choice):
             self.last_selected_game_choice = int(selected_choice)
@@ -774,32 +827,41 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                 self._save_settings()
 
     @staticmethod
-    def _set_plugin_status(label, message, css_class=None):
+    def _set_install_status(label, message, css_class=None):
         label.remove_css_class("success-label")
         label.remove_css_class("warning-label")
         if css_class:
             label.add_css_class(css_class)
         label.set_text(message)
 
-    def _refresh_plugin_status(self, label, status_query, game_name, short_name):
-        """Show whether the plugin is already installed, before anything is clicked."""
+    def _refresh_plugin_status(self, label, status_query, game_name, short_name, is_wrapper = False):
+        """Show whether the plugin, or wrapper, is already installed, before anything is clicked."""
         try:
             state, installed_paths = status_query()
         except Exception as exc:
-            self._set_plugin_status(label, f"Could not check the plugin: {exc}", "warning-label")
+            self._set_install_status(label, f"Could not check the {'wrapper' if is_wrapper else 'plugin'}: {exc}",
+                "warning-label")
             return
 
         if state == GAME_MISSING:
-            self._set_plugin_status(
+            self._set_install_status(
                 label, f"{game_name} was not found in your Steam libraries.", "warning-label"
             )
             return
-        if state == PLUGIN_INSTALLED:
-            self._set_plugin_status(
-                label, f"Plugin installed ({len(installed_paths)} file(s)).", "success-label"
-            )
-            return
-        self._set_plugin_status(label, f"Plugin not installed for {short_name} yet.")
+        if (not is_wrapper):
+            if state == PLUGIN_INSTALLED:
+                self._set_install_status(
+                    label, f"Plugin installed ({len(installed_paths)} file(s)).", "success-label"
+                )
+                return
+            self._set_install_status(label, f"Plugin not installed for {short_name} yet.") 
+        else:
+            if state == WRAPPER_INSTALLED:
+                self._set_install_status(
+                    label, f"Wrapper executable is installed.", "success-label"
+                )
+                return
+            self._set_install_status(label, f"Wrapper not installed for {short_name} yet.")
 
     def _refresh_ts_plugin_statuses(self):
         self._refresh_plugin_status(
@@ -809,34 +871,55 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.ats_plugin_status, query_ats_plugin_status, "American Truck Simulator", "ATS"
         )
 
-    def _install_plugins(self, button, label, installer, short_name):
+    def _refresh_acc_wrapper_status(self):
+        self._refresh_plugin_status(
+            self.acc_wrapper_status, query_acc_wrapper_status, "Assetto Corsa Competizione", "ACC", True
+        )
+
+    def _refresh_acr_wrapper_status(self):
+        self._refresh_plugin_status(
+            self.acr_wrapper_status, query_acr_wrapper_status, "Assetto Corsa Rally", "ACR", True
+        )
+
+    def _install_files(self, button, label, installer, short_name, is_wrapper = False):
         button.set_sensitive(False)
         try:
             installed_paths = installer(app_dir=Path(__file__).resolve().parent)
             if not installed_paths:
-                self._set_plugin_status(
-                    label, f"No {short_name} plugin files were installed.", "warning-label"
+                self._set_install_status(
+                    label, f"No {short_name} {'wrapper' if is_wrapper else 'plugin'} files were installed.",
+                    "warning-label"
                 )
                 return
-            self._set_plugin_status(
+            self._set_install_status(
                 label,
-                f"Installed {len(installed_paths)} {short_name} plugin file(s). "
+                f"Installed {len(installed_paths)} {short_name} {'wrapper' if is_wrapper else 'plugin'} file(s). "
                 f"Restart {short_name} if it is already running.",
                 "success-label",
             )
         except Exception as exc:
-            self._set_plugin_status(label, str(exc), "warning-label")
+            self._set_install_status(label, str(exc), "warning-label")
         finally:
             button.set_sensitive(True)
 
     def _on_ets2_plugin_install_clicked(self, _button):
-        self._install_plugins(
+        self._install_files(
             self.ets2_plugin_button, self.ets2_plugin_status, install_ets2_plugins, "ETS2"
         )
 
     def _on_ats_plugin_install_clicked(self, _button):
-        self._install_plugins(
+        self._install_files(
             self.ats_plugin_button, self.ats_plugin_status, install_ats_plugins, "ATS"
+        )
+
+    def _on_acc_exe_install_clicked(self, _button):
+        self._install_files(
+            self.acc_wrapper_button, self.acc_wrapper_status, install_acc_wrapper, "ACC", True
+        )
+
+    def _on_acr_exe_install_clicked(self, _button):
+        self._install_files(
+            self.acr_wrapper_button, self.acr_wrapper_status, install_acr_wrapper, "ACR", True
         )
 
     @staticmethod
@@ -938,7 +1021,11 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self._save_settings()
             return AssettoCorsa(max_rpm=self.assetto_max_rpm)
         if choice == ASSETTO_CORSA_COMPETIZIONE:
-            return AssettoCorsaCompetizione()
+            return AssettoCorsaSharedMemory()
+        if choice == ASSETTO_CORSA_RALLY:
+            self.assetto_rally_max_rpm = int(self.max_rpm_input.get_value())
+            self._save_settings()
+            return AssettoCorsaSharedMemory(max_rpm=self.assetto_rally_max_rpm)
         if choice == BEAMNG:
             self.beamng_max_rpm = int(self.max_rpm_input.get_value())
             self._save_settings()
@@ -1031,7 +1118,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             now = time.monotonic()
 
             # Shared memory games
-            if choice == ASSETTO_CORSA_COMPETIZIONE:
+            if choice == ASSETTO_CORSA_COMPETIZIONE or choice == ASSETTO_CORSA_RALLY:
                 if shared_memory_opened is False:
                     if now < next_reconnect_time:
                         time.sleep(0.05)
@@ -1106,7 +1193,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                     wheel.leds_rpm(clamped_percent if clamped_percent != 0 else 0)
                 last_send = now
             # Avoid using too much CPU for no reason
-            if choice == ASSETTO_CORSA_COMPETIZIONE:    
+            if choice == ASSETTO_CORSA_COMPETIZIONE or choice == ASSETTO_CORSA_RALLY:
                 time.sleep(0.05)
 
         self.shared_rpm_percent = 0

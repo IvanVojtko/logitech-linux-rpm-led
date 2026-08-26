@@ -4,3 +4,4 @@ __pycache__/
 *.py[cod]
 scs-plugin/*.dll
 scs-plugin/*.so
+assetto-wrapper/*.exe

@@ -2,17 +2,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from games.ts_plugin_installer import (
+from installers.ts_plugin_installer import (
     GAME_MISSING,
     PLUGIN_INSTALLED,
     PLUGIN_MISSING,
     discover_steam_libraries,
-    find_ts_install_dirs,
     find_plugin_binaries,
     install_ets2_plugins,
     install_ats_plugins,
     ts_plugin_status,
 )
+from installers.steam_utils import find_game_install_dirs
 
 
 class TestTsPluginInstaller(unittest.TestCase):
@@ -36,7 +36,7 @@ class TestTsPluginInstaller(unittest.TestCase):
             steamapps.mkdir(parents=True)
             (steamapps / "appmanifest_227300.acf").write_text("", encoding="utf-8")
 
-            self.assertEqual(find_ts_install_dirs("227300", "Euro Truck Simulator 2", [root]), [install_dir])
+            self.assertEqual(find_game_install_dirs("227300", "Euro Truck Simulator 2", [root]), [install_dir])
 
     def test_finds_ats_install_dir_from_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -46,7 +46,7 @@ class TestTsPluginInstaller(unittest.TestCase):
             steamapps.mkdir(parents=True)
             (steamapps / "appmanifest_270880.acf").write_text("", encoding="utf-8")
 
-            self.assertEqual(find_ts_install_dirs("270880", "American Truck Simulator", [root]), [install_dir])
+            self.assertEqual(find_game_install_dirs("270880", "American Truck Simulator", [root]), [install_dir])
 
     def test_finds_available_plugin_binaries(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

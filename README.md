@@ -36,6 +36,7 @@ If you like my work, consider supporting me:
 - **SMS Madness Engine games** (e.g., **Automobilista 2**, **Project CARS**, **Project CARS 2**)
 - **Assetto Corsa** (manual max RPM input in app)
 - **Assetto Corsa Competizione**
+- **Assetto Corsa Rally**
 - **BeamNG.drive** (manual max RPM input in app)
 - **Euro Truck Simulator 2 / American Truck Simulator** (requires the included SCS telemetry plugin)
 - **Live for Speed** (manual max RPM input in app)
@@ -236,17 +237,25 @@ hook after installation and removal.
 
 ---
 
-### Assetto Corsa Competizione
+### Assetto Corsa Competizione/Rally
 
-You need to install the "wrapper" bridge between the "Windows" ACC shared
-memory to a Linux one (/dev/shm):
+You need to install the "wrapper" bridge between the "Windows" ACC/ACR named
+shared memory to a Linux one in /dev/shm:
 
-1. In the ACC game folder, rename the file "acc.exe" to "_acc.exe"
-2. Download <https://github.com/gotzl/pyacc/blob/main/linux/acc_wrapper.exe>
-3. Move the downloaded file to the installation folder and rename
-   it to "acc.exe"
-4. Start the game as usual. A window should appear in addition to the game,
-   with the text "Done! Waiting for ACC to stop." at the end.
+If you installed this app from a release package, select **Assetto Corsa
+Competizione** or **Assetto Corsa Rally** and click **Install ACC Shared Memory
+wrapper** or **Install ACR Shared Memory wrapper**. The app searches your Steam
+libraries, renames the original Windows executable (adding a "_" in front) and
+replaces it with the wrapper, that will launch the game when it is executed.  
+Once the wrapper is installed, start the game as usual. A window should appear
+in addition to the game, with the text "Done! Waiting for game to stop." at the
+end.
+
+If you run from source, build the wrapper first:
+
+```bash
+make -C assetto-wrapper
+```
 
 ---
 

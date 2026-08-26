@@ -1,7 +1,7 @@
-import os
-import re
 import shutil
 from pathlib import Path
+
+from installers.steam_utils import default_steam_roots, discover_steam_libraries, find_game_install_dirs
 
 ETS2_APP_ID = "227300"
 ETS2_DIR_NAME = "Euro Truck Simulator 2"
@@ -12,64 +12,6 @@ PLUGIN_FILENAMES = (
     ("linux_x64", "logitech_rpm_telemetry.so"),
     ("win_x64", "logitech_rpm_telemetry.dll"),
 )
-
-
-def default_steam_roots():
-    home = Path.home()
-    roots = [
-        home / ".local/share/Steam",
-        home / ".steam/steam",
-        home / ".var/app/com.valvesoftware.Steam/.local/share/Steam",
-    ]
-    env_root = os.environ.get("STEAM_DIR")
-    if env_root:
-        roots.insert(0, Path(env_root))
-    return roots
-
-
-def _normalize_vdf_path(raw_path):
-    return raw_path.replace("\\\\", "\\")
-
-
-def discover_steam_libraries(steam_roots=None):
-    libraries = []
-    seen = set()
-
-    def add_library(path):
-        resolved = Path(path).expanduser()
-        key = str(resolved)
-        if key not in seen:
-            seen.add(key)
-            libraries.append(resolved)
-
-    for root in steam_roots or default_steam_roots():
-        root = Path(root).expanduser()
-        add_library(root)
-        vdf_path = root / "steamapps/libraryfolders.vdf"
-        try:
-            content = vdf_path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        for match in re.finditer(r'"path"\s+"([^"]+)"', content):
-            add_library(_normalize_vdf_path(match.group(1)))
-
-    return libraries
-
-
-def find_ts_install_dirs(app_id, dir_name, steam_roots=None):
-    install_dirs = []
-    seen = set()
-    for library in discover_steam_libraries(steam_roots):
-        steamapps = library / "steamapps"
-        manifest = steamapps / f"appmanifest_{app_id}.acf"
-        install_dir = steamapps / "common" / dir_name
-        if not manifest.exists() and not install_dir.exists():
-            continue
-        key = str(install_dir)
-        if key not in seen:
-            seen.add(key)
-            install_dirs.append(install_dir)
-    return install_dirs
 
 
 def find_plugin_binaries(app_dir=None):
@@ -98,7 +40,7 @@ def ts_plugin_status(app_id, dir_name, steam_roots=None):
     Returns (state, installed_paths). The three states are distinct advice for
     the user: install the game, install the plugin, or nothing to do.
     """
-    install_dirs = find_ts_install_dirs(app_id, dir_name, steam_roots)
+    install_dirs = find_game_install_dirs(app_id, dir_name, steam_roots)
     if not install_dirs:
         return GAME_MISSING, []
 
@@ -121,7 +63,7 @@ def ats_plugin_status(steam_roots=None):
 
 
 def install_ts_plugins(app_id, dir_name, steam_roots=None, app_dir=None):
-    install_dirs = find_ts_install_dirs(app_id, dir_name, steam_roots)
+    install_dirs = find_game_install_dirs(app_id, dir_name, steam_roots)
     if not install_dirs:
         raise FileNotFoundError(dir_name + " installation was not found in Steam libraries.")
 
