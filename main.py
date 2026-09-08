@@ -62,6 +62,7 @@ DEFAULT_LIVE_FOR_SPEED_MAX_RPM = 8000
 MIN_MAX_RPM = 1000
 MAX_MAX_RPM = 20000
 RECONNECT_DELAY_SECONDS = 1.0
+THREAD_JOIN_TIMEOUT_SECONDS = 2.0
 RECONNECT_INACTIVITY_SECONDS = 3.0
 AUTO_DETECT_INTERVAL_SECONDS = 1.0
 DEFAULT_REMEMBER_LAST_GAME = False
@@ -240,7 +241,10 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         super().__init__(*args, **kwargs)
 
         self.thread = None
+        # Replaced per session by _start_telemetry_for_choice; starts set so an
+        # unexpected reader never mistakes it for a live session.
         self.stop_event = threading.Event()
+        self.stop_event.set()
         self.running = False
         self.shared_rpm_percent = 0
         self.active_game_choice = None
@@ -970,11 +974,23 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         return True
 
     def _stop_telemetry(self):
+        # The flag is deliberately left set: this session owns it, and a new
+        # session gets a fresh one. Clearing it here would hand a thread that
+        # outlived the join a cleared flag and let it run forever.
         self.stop_event.set()
         if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=1.0)
+            self.thread.join(timeout=THREAD_JOIN_TIMEOUT_SECONDS)
+            if self.thread.is_alive():
+                # Blocking reads have their own timeouts, so it will exit shortly
+                # on its own; it just cannot be waited for any longer here.
+                print("Telemetry thread did not stop in time; it will exit on its own.")
         if self.wheel:
-            self.wheel.leds_rpm(0)
+            try:
+                self.wheel.leds_rpm(0)
+            except Exception as exc:
+                # Runs on the GTK thread, including from close-request and the
+                # auto-detect tick, so a dead wheel must not escape from here.
+                print(f"Could not clear the wheel LEDs: {exc}")
         self.shared_rpm_percent = 0
         self._update_rpm_preview(0)
         self._clear_message(MESSAGE_TAG_TELEMETRY)
@@ -1048,12 +1064,15 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             return False
 
         self.running = True
-        self.stop_event.clear()
+        # A fresh event per session. Reusing one would resurrect a thread that
+        # was still shutting down when the previous session was stopped.
+        stop_event = threading.Event()
+        self.stop_event = stop_event
         self.shared_rpm_percent = 0
         self.active_game_choice = choice
         self.thread = threading.Thread(
             target=self.game_handling_loop,
-            args=(game, self.wheel, choice),
+            args=(game, self.wheel, choice, stop_event),
             daemon=True,
         )
         self.thread.start()
@@ -1104,7 +1123,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self._stop_telemetry()
             self._update_running_status()
 
-    def game_handling_loop(self, game, wheel, choice):
+    def game_handling_loop(self, game, wheel, choice, stop_event):
         if game is None:
             return
 
@@ -1114,7 +1133,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         last_send = 0.0
         last_packet_time = 0.0
         next_reconnect_time = 0.0
-        while not self.stop_event.is_set():
+        while not stop_event.is_set():
             now = time.monotonic()
 
             # Shared memory games
@@ -1190,7 +1209,13 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             now = time.perf_counter()
             if now - last_send >= 0.05:
                 if wheel:
-                    wheel.leds_rpm(clamped_percent if clamped_percent != 0 else 0)
+                    try:
+                        wheel.leds_rpm(clamped_percent if clamped_percent != 0 else 0)
+                    except Exception as exc:
+                        # A wheel unplugged mid-session must not take the session
+                        # with it: drop it and keep feeding the on-screen preview.
+                        self._handle_wheel_write_failure(exc)
+                        wheel = None
                 last_send = now
             # Avoid using too much CPU for no reason
             if choice == ASSETTO_CORSA_COMPETIZIONE or choice == ASSETTO_CORSA_RALLY:
@@ -1214,6 +1239,15 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         )
         self.shared_rpm_percent = 0
         time.sleep(0.05)
+
+    def _handle_wheel_write_failure(self, exc):
+        print(f"Wheel write failed, dropping the wheel for this session: {exc}")
+        self._post_message(
+            f"Lost contact with the wheel: {exc} "
+            "Stop telemetry and press Rescan once it is reconnected.",
+            MESSAGE_ERROR,
+            MESSAGE_TAG_WHEEL,
+        )
 
     def _handle_telemetry_read_failure(self, exc):
         print(f"Telemetry read failed, reopening shared memory: {exc}")

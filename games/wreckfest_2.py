@@ -1,9 +1,12 @@
 import socket
 import struct
+import time
 
 CURR_POS = 435
 MAX_POS = 439
 BUFFER_SIZE = 2048
+BLINK_THRESHOLD_PERCENT = 99
+BLINK_HALF_PERIOD_SECONDS = 0.1
 
 class Wreckfest2:
     def __init__(self):
@@ -21,14 +24,27 @@ class Wreckfest2:
         data, addr = udp_socket.recvfrom(BUFFER_SIZE)
         return data
     
-    def calc_rpm_percent(self):
-        if (self.rpmMax == 0):
+    @staticmethod
+    def _blink_is_lit(now) -> bool:
+        """Half of every blink period the lights are on, the other half off.
+
+        Driven by the clock rather than by a packet counter: the telemetry rate
+        and the 20 Hz LED write budget in the main loop are both out of our
+        hands, so counting packets would make the flash rate unpredictable.
+        """
+        return int(now / BLINK_HALF_PERIOD_SECONDS) % 2 == 0
+
+    def calc_rpm_percent(self, now=None):
+        if (self.rpmMax <= 0):
             return 0
 
         rpm_percent = (self.rpm * 100) / self.rpmMax
-        # Return 0 if rpm is 99 or above to have a blinking effect when reaching max RPM
-        if (rpm_percent >= 99):
-            return 0
+        # Flash the bar at the limiter instead of holding it solid. Returning 0
+        # unconditionally would just switch the lights off and leave them off,
+        # because nothing here alternates between calls.
+        if (rpm_percent >= BLINK_THRESHOLD_PERCENT):
+            now = time.monotonic() if now is None else now
+            return rpm_percent if self._blink_is_lit(now) else 0
         return rpm_percent
 
     def get_rpm_percent(self, data, percent) -> int:
