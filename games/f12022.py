@@ -8,7 +8,10 @@ CAR_TELEMETRY_ID = 6	#Same in 2019, 2020, 2022
 BUFFER_SIZE = 1347	    #1347 in 2019, 1307 in 2020, 1347 in 2022
 PACKET_HEADER = struct.Struct("<HBBBBQfIBB")
 PACKET_HEADER_SIZE = PACKET_HEADER.size
-CAR_TELEMETRY = struct.Struct("<HfffBbHBBH4H4H4HH4f4B")
+# Tyre surface/inner temperatures are uint8 arrays, not uint16: the struct has to
+# come out at 60 bytes, matching BUFFER_SIZE (24 header + 22 * 60 + 3 trailing).
+# Identical to F1 23, which only changed the packet header.
+CAR_TELEMETRY = struct.Struct("<HfffBbHBBH4H4B4BH4f4B")
 CAR_TELEMETRY_SIZE = CAR_TELEMETRY.size
 
 

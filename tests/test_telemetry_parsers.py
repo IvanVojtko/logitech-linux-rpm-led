@@ -1,6 +1,8 @@
 import struct
 import unittest
 
+from games import f12019, f12020, f12022, f12023
+
 from games.dirt_rally_2_0 import CURR_POS as DIRT_CURR_POS
 from games.dirt_rally_2_0 import MAX_POS as DIRT_MAX_POS
 from games.dirt_rally_2_0 import DirtRally2
@@ -26,6 +28,8 @@ from games.truck_simulator import PACKET_MAGIC as SCS_TS_PACKET_MAGIC
 from games.truck_simulator import PACKET_STRUCT as SCS_TS_PACKET_STRUCT
 from games.truck_simulator import PACKET_VERSION as SCS_TS_PACKET_VERSION
 from games.truck_simulator import TruckSimulator
+from games.wreckfest_2 import BLINK_HALF_PERIOD_SECONDS as WRECKFEST_2_BLINK_HALF_PERIOD
+from games.wreckfest_2 import BLINK_THRESHOLD_PERCENT as WRECKFEST_2_BLINK_THRESHOLD
 from games.wreckfest_2 import CURR_POS as WRECKFEST_2_CURR_POS
 from games.wreckfest_2 import MAX_POS as WRECKFEST_2_MAX_POS
 from games.wreckfest_2 import Wreckfest2
@@ -168,7 +172,7 @@ class TestF1PlayerCarSelection(unittest.TestCase):
                 "F1 2022",
                 F12022(),
                 "<HBBBBQfIBB",
-                "<HfffBbHBBH4H4H4HH4f4B",
+                "<HfffBbHBBH4H4B4BH4f4B",
                 F12022_PACKET_ID_POS,
                 F12022_PLAYER_CAR_INDEX_POS,
             ),
@@ -252,6 +256,57 @@ class TestWreckfest2Parser(unittest.TestCase):
         values[WRECKFEST_2_MAX_POS:WRECKFEST_2_MAX_POS + 4] = (8000).to_bytes(4, byteorder='little', signed=True)
         # Check using correct calculated RPM
         self.assertEqual(game.get_rpm_percent(values, 10), 50)
+
+
+class TestF1PacketLayouts(unittest.TestCase):
+    """Anchor each struct against the packet size the game actually sends.
+
+    A car struct declared with the wrong field widths still round-trips through
+    a test that builds its packets with that same struct, so the layouts are
+    checked against the documented grid size instead. F1 2022 shipped with
+    uint16 tyre temperature arrays and yielded 19 cars instead of 22.
+    """
+
+    def test_car_struct_size_yields_the_documented_grid(self) -> None:
+        cases = [
+            ("F1 2019", f12019, 20),
+            ("F1 2020", f12020, 22),
+            ("F1 2022", f12022, 22),
+            ("F1 2023", f12023, 22),
+        ]
+        for name, module, expected_cars in cases:
+            with self.subTest(name=name):
+                payload = module.BUFFER_SIZE - module.PACKET_HEADER_SIZE
+                self.assertEqual(payload // module.CAR_TELEMETRY_SIZE, expected_cars)
+                # Whatever is left over are the few trailing fields after the
+                # car array, never a whole car's worth of slack.
+                self.assertLess(payload % module.CAR_TELEMETRY_SIZE, module.CAR_TELEMETRY_SIZE)
+
+
+class TestWreckfest2Blink(unittest.TestCase):
+    def test_limiter_alternates_between_lit_and_dark(self) -> None:
+        game = Wreckfest2()
+        game.rpm, game.rpmMax = 7960, 8000  # 99.5%, on the limiter
+
+        half = WRECKFEST_2_BLINK_HALF_PERIOD
+        seen = [game.calc_rpm_percent(now=half * tick) for tick in range(6)]
+
+        self.assertTrue(any(value == 0 for value in seen), seen)
+        self.assertTrue(any(value >= WRECKFEST_2_BLINK_THRESHOLD for value in seen), seen)
+
+    def test_below_the_limiter_reports_the_real_percent(self) -> None:
+        game = Wreckfest2()
+        game.rpm, game.rpmMax = 7000, 8000  # 87.5%
+
+        half = WRECKFEST_2_BLINK_HALF_PERIOD
+        for tick in range(6):
+            with self.subTest(tick=tick):
+                self.assertAlmostEqual(game.calc_rpm_percent(now=half * tick), 87.5)
+
+    def test_non_positive_max_rpm_reports_zero(self) -> None:
+        game = Wreckfest2()
+        game.rpm, game.rpmMax = 7000, -1
+        self.assertEqual(game.calc_rpm_percent(now=0.0), 0)
 
 
 if __name__ == "__main__":
