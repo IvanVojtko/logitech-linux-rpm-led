@@ -6,7 +6,7 @@ from wheels.wheels import GPROxbox
 from wheels.wheels import GPROps4
 from wheels.wheels import RS50
 from wheels.base import BaseWheel
-from wheels.hid_backend import enumerate_devices
+from wheels.hid_backend import HidBackendUnavailable, enumerate_devices
 
 # Register every VID/PID with its class
 DEVICE_MAP: dict[tuple[int, int], type[BaseWheel]] = {}
@@ -26,9 +26,17 @@ def find_wheel_with_failures() -> tuple[BaseWheel | None, list[WheelFailure]]:
 
     The failures matter to the UI: "nothing plugged in" and "plugged in but no
     permission" need different advice, and only the caller can display it.
+
+    Raises HidBackendUnavailable when no HID backend can be loaded, since that
+    is a third case needing its own advice.
     """
     failures: list[WheelFailure] = []
-    for dev in enumerate_devices():
+    try:
+        devices = enumerate_devices()
+    except HidBackendUnavailable as error:
+        print(f"✖  Cannot look for a wheel, the HID backend failed to load: {error}")
+        raise
+    for dev in devices:
         cls = DEVICE_MAP.get((dev['vendor_id'], dev['product_id']))
         if not cls:
             continue

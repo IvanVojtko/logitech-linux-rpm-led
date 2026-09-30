@@ -4,20 +4,47 @@ import unittest
 from unittest import mock
 
 from wheels.base import BaseWheel
-from wheels.hid_backend import HidBackendUnavailable, enumerate_devices, is_hid_error, open_device
+from wheels.hid_backend import (
+    HIDAPI_HINT,
+    PYTHON_HID_HINT,
+    HidBackendUnavailable,
+    enumerate_devices,
+    is_hid_error,
+    open_device,
+)
 
 
 class TestHidBackend(unittest.TestCase):
     def tearDown(self) -> None:
         sys.modules.pop("hid", None)
 
-    def test_enumerate_devices_returns_empty_list_when_hid_module_missing(self) -> None:
+    def test_enumerate_devices_raises_when_hid_module_missing(self) -> None:
+        # An empty list would read as "no wheel plugged in" and hide the real cause.
         sys.modules.pop("hid", None)
         with mock.patch(
             "wheels.hid_backend.importlib.import_module",
-            side_effect=ModuleNotFoundError("No module named 'hid'"),
+            side_effect=ModuleNotFoundError("No module named 'hid'", name="hid"),
         ):
-            self.assertEqual(enumerate_devices(), [])
+            with self.assertRaises(HidBackendUnavailable) as raised:
+                enumerate_devices()
+
+        self.assertIn("No module named 'hid'", str(raised.exception))
+        self.assertIn(PYTHON_HID_HINT, str(raised.exception))
+
+    def test_enumerate_devices_raises_when_hidapi_library_missing(self) -> None:
+        # The pip `hid` package raises this on import when libhidapi is absent.
+        sys.modules.pop("hid", None)
+        with mock.patch(
+            "wheels.hid_backend.importlib.import_module",
+            side_effect=ImportError(
+                "Unable to load any of the following libraries:libhidapi-hidraw.so"
+            ),
+        ):
+            with self.assertRaises(HidBackendUnavailable) as raised:
+                enumerate_devices()
+
+        self.assertIn("libhidapi-hidraw.so", str(raised.exception))
+        self.assertIn(HIDAPI_HINT, str(raised.exception))
 
     def test_is_hid_error_true_when_hid_module_missing(self) -> None:
         sys.modules.pop("hid", None)

@@ -23,6 +23,7 @@ from installers.ts_plugin_installer import ats_plugin_status as query_ats_plugin
 from installers.ts_plugin_installer import GAME_MISSING, PLUGIN_INSTALLED
 from wheels.base import BaseWheel
 from wheels.detect import find_wheel_with_failures, PERMISSION_HINT
+from wheels.hid_backend import HidBackendUnavailable
 
 APP_DIR = Path(__file__).resolve().parent
 ICONS_DIR = APP_DIR / "icons"
@@ -682,7 +683,16 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.wheel.close()
             self.wheel = None
 
-        self.wheel, failures = find_wheel_with_failures()
+        try:
+            self.wheel, failures = find_wheel_with_failures()
+        except HidBackendUnavailable as error:
+            self._update_wheel_status()
+            self._show_message(
+                f"No wheel can be detected because the HID backend failed to load: {error}",
+                MESSAGE_ERROR,
+                MESSAGE_TAG_WHEEL,
+            )
+            return
         self._update_wheel_status()
 
         if self.wheel:
