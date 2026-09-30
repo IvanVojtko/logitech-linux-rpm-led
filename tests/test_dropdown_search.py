@@ -16,29 +16,29 @@ except (ImportError, ValueError):
 
 @unittest.skipUnless(GTK_AVAILABLE, "GTK 4 / libadwaita bindings are not available")
 class DropDownSearchTest(unittest.TestCase):
-    """The dropdown search only works when Widget.name resolves to a string.
+    """The dropdown search only works when GameItem.name resolves to a string.
 
     A bare @GObject.Property yields PyObject, which GTK rejects, leaving the
     search box accepting keystrokes without ever filtering the list.
     """
 
     def _build_store(self):
-        store = Gio.ListStore(item_type=main.Widget)
+        store = Gio.ListStore(item_type=main.GameItem)
         for name in ("Assetto Corsa", "Euro Truck Simulator 2 / American Truck Simulator", "Wreckfest 2"):
-            store.append(main.Widget(name=name, image_path="icon.png"))
+            store.append(main.GameItem(name=name, image_path="icon.png"))
         return store
 
     def test_name_property_is_a_string(self) -> None:
-        self.assertEqual(main.Widget.find_property("name").value_type, GObject.TYPE_STRING)
+        self.assertEqual(main.GameItem.find_property("name").value_type, GObject.TYPE_STRING)
 
     def test_dropdown_accepts_the_search_expression(self) -> None:
         dropdown = Gtk.DropDown(model=self._build_store())
-        dropdown.set_expression(Gtk.PropertyExpression.new(main.Widget, None, "name"))
+        dropdown.set_expression(Gtk.PropertyExpression.new(main.GameItem, None, "name"))
         self.assertIsNotNone(dropdown.get_expression())
 
     def test_expression_filters_the_game_list(self) -> None:
         string_filter = Gtk.StringFilter(
-            expression=Gtk.PropertyExpression.new(main.Widget, None, "name")
+            expression=Gtk.PropertyExpression.new(main.GameItem, None, "name")
         )
         string_filter.set_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
         string_filter.set_ignore_case(True)
@@ -59,7 +59,7 @@ class DropDownFactoryOrderTest(unittest.TestCase):
     """
 
     def _configure(self, dropdown, factory, factory_first):
-        expression = Gtk.PropertyExpression.new(main.Widget, None, "name")
+        expression = Gtk.PropertyExpression.new(main.GameItem, None, "name")
         if factory_first:
             dropdown.set_factory(factory)
             dropdown.set_expression(expression)

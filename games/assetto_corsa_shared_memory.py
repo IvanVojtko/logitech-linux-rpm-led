@@ -3,6 +3,8 @@ import mmap
 import sys
 import os
 
+from games.rev_limiter import flash_at_limiter
+
 CURR_POS = 5
 MAX_POS = 12
 # ACR_PHYSICS_MAX_POS = 62
@@ -13,7 +15,7 @@ PHYSICS_SIZE = PHYSICS_TELEMETRY.size
 # ACR_PHYSICS_SIZE = ACR_PHYSICS_TELEMETRY.size
 STATIC_TELEMETRY = struct.Struct("30s30sii66s66s66s66s66siffif4f4ffffifffifiiiiifiif66sfii66siiii66s66s")
 STATIC_SIZE = STATIC_TELEMETRY.size
-BLINKING_TICKS = 2
+BLINK_THRESHOLD_PERCENT = 98
 
 class AssettoCorsaSharedMemory:
     def __init__(self, max_rpm = 0):
@@ -94,12 +96,4 @@ class AssettoCorsaSharedMemory:
         if max_rpm <= 0:
             return prev_value
         rpm_percent = int((current_rpm / max_rpm) * 100)
-
-        # When RPM is at high RPM, add a blinking effect for a few ticks
-        if rpm_percent >= 98 and prev_value >= 90:
-            return 0
-        # manipulate prev_value as an increment using very low value compared to current RPM
-        if rpm_percent >= 90 and prev_value < BLINKING_TICKS:
-            return prev_value + 1
-
-        return rpm_percent
+        return flash_at_limiter(rpm_percent, BLINK_THRESHOLD_PERCENT)
