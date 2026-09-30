@@ -103,18 +103,23 @@ logitech-rpm-indicator
 - Python 3
 - `pip`
 - GTK 4, libadwaita, and GObject introspection development packages
+- The `hidapi` system library. The `hid` package from `pip` is only a wrapper
+  around it and does not install it.
 
 On Debian/Ubuntu:
 
 ```bash
-sudo apt install python3-dev libcairo2-dev libgirepository-2.0-dev gir1.2-gtk-4.0 gir1.2-adw-1
+sudo apt install python3-dev libcairo2-dev libgirepository-2.0-dev gir1.2-gtk-4.0 gir1.2-adw-1 libhidapi-hidraw0
 ```
 
 On Fedora:
 
 ```bash
-sudo dnf install python3-devel cairo-devel gobject-introspection-devel gtk4-devel libadwaita-devel
+sudo dnf install python3-devel cairo-devel gobject-introspection-devel gtk4-devel libadwaita-devel hidapi
 ```
+
+On other distributions install the equivalent packages, for example `hidapi`
+on Arch Linux or `dev-libs/hidapi` on Gentoo.
 
 #### Steps
 
@@ -370,6 +375,14 @@ SCS_SDK_DIR=/tmp/scs_sdk_1_14` builds both files.
 - Confirm the correct game is selected in the app and that you clicked **Start**
 - Double-check telemetry is enabled in the game and IP/port match the instructions above
 - Make sure no firewall rule is blocking localhost UDP (rare, but possible)
+
+### "The HID backend failed to load"
+
+The app talks to the wheel through the `hidapi` library. If the message
+mentions `Unable to load any of the following libraries`, install `hidapi` with
+your package manager (see [Requirements](#requirements)) and press **Rescan**.
+If it says `No module named 'hid'`, run `pip install -r requirements.txt` in
+your virtual environment, or install `python3-hid` from your distribution.
 
 ### Permission errors (Linux device access)
 

@@ -3,8 +3,21 @@ from unittest import mock
 
 from wheels.base import BaseWheel
 from wheels.detect import DEVICE_MAP, find_wheel, find_wheel_with_failures
+from wheels.hid_backend import HidBackendUnavailable
 from wheels.protocols import HIDClassic, HIDpp
 from wheels.wheels import G923ps, G923xbox
+
+try:
+    import gi
+
+    gi.require_version("Gtk", "4.0")
+    gi.require_version("Adw", "1")
+
+    import main
+
+    GTK_AVAILABLE = True
+except (ImportError, ValueError):
+    GTK_AVAILABLE = False
 
 LOGITECH = 0x046D
 
@@ -100,6 +113,35 @@ class TestFindWheelFailures(unittest.TestCase):
     def test_no_devices_at_all_reports_no_failures(self) -> None:
         with mock.patch("wheels.detect.enumerate_devices", return_value=[]):
             self.assertEqual(find_wheel_with_failures(), (None, []))
+
+    def test_a_missing_hid_backend_is_raised_not_reported_as_no_wheel(self) -> None:
+        with mock.patch(
+            "wheels.detect.enumerate_devices",
+            side_effect=HidBackendUnavailable("Unable to load libhidapi"),
+        ), mock.patch("builtins.print") as fake_print:
+            with self.assertRaises(HidBackendUnavailable):
+                find_wheel_with_failures()
+
+        printed = " ".join(str(call.args[0]) for call in fake_print.call_args_list)
+        self.assertIn("Unable to load libhidapi", printed)
+
+
+@unittest.skipUnless(GTK_AVAILABLE, "GTK 4 / libadwaita bindings are not available")
+class TestWheelScanMessage(unittest.TestCase):
+    def test_a_missing_hid_backend_is_shown_as_an_error(self) -> None:
+        window = mock.Mock(wheel=None)
+        with mock.patch.object(
+            main,
+            "find_wheel_with_failures",
+            side_effect=HidBackendUnavailable("Unable to load libhidapi. Install hidapi"),
+        ):
+            main.WheelRPMWindow._detect_wheel(window, announce_success=False)
+
+        text, severity, tag = window._show_message.call_args.args
+        self.assertIn("Unable to load libhidapi. Install hidapi", text)
+        self.assertEqual(severity, main.MESSAGE_ERROR)
+        self.assertEqual(tag, main.MESSAGE_TAG_WHEEL)
+        self.assertIsNone(window.wheel)
 
     def test_a_detected_wheel_reports_no_failures(self) -> None:
         with mock.patch(
