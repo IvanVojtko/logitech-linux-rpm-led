@@ -11,19 +11,8 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, Gio, GObject, Gdk, GLib
 
-from games.forza_horizon import ForzaHorizon5, ForzaHorizon6
-from games.f12019 import F12019
-from games.f12020 import F12020
-from games.f12022 import F12022
-from games.f12023 import F12023
-from games.dirt_rally_2_0 import DirtRally2
-from games.automobilista_2 import Automobilista2
-from games.assetto_corsa import AssettoCorsa
-from games.assetto_corsa_shared_memory import AssettoCorsaSharedMemory
-from games.outgauge import OutGauge
-from games.truck_simulator import TruckSimulator
-from games.wreckfest_2 import Wreckfest2
 from games.autodetect import detect_running_game
+from games.registry import GAMES, GAME_INDEX_BY_KEY
 from installers.assetto_wrapper_installer import install_acc_wrapper, install_acr_wrapper
 from installers.assetto_wrapper_installer import acc_wrapper_status as query_acc_wrapper_status
 from installers.assetto_wrapper_installer import acr_wrapper_status as query_acr_wrapper_status
@@ -39,26 +28,6 @@ APP_DIR = Path(__file__).resolve().parent
 ICONS_DIR = APP_DIR / "icons"
 APPLICATION_ID = "io.github.IvanVojtko.LogitechRpmIndicator"
 
-AMS_2 =                         0
-ASSETTO_CORSA =                 1
-ASSETTO_CORSA_COMPETIZIONE =    2
-ASSETTO_CORSA_RALLY =           3
-BEAMNG =                        4
-DIRT_RALLY_2_0 =                5
-TRUCK_SIMULATOR =               6
-F1_2019 =                       7
-F1_2020 =                       8
-F1_2022 =                       9
-F1_2023 =                       10
-FORZA_HORIZON_5 =               11
-FORZA_HORIZON_6 =               12
-LIVE_FOR_SPEED =                13
-WRECKFEST_2 =                   14
-
-DEFAULT_ASSETTO_MAX_RPM = 9000
-DEFAULT_ASSETTO_RALLY_MAX_RPM = 6700
-DEFAULT_BEAMNG_MAX_RPM = 6200
-DEFAULT_LIVE_FOR_SPEED_MAX_RPM = 8000
 MIN_MAX_RPM = 1000
 MAX_MAX_RPM = 20000
 RECONNECT_DELAY_SECONDS = 1.0
@@ -66,7 +35,7 @@ THREAD_JOIN_TIMEOUT_SECONDS = 2.0
 RECONNECT_INACTIVITY_SECONDS = 3.0
 AUTO_DETECT_INTERVAL_SECONDS = 1.0
 DEFAULT_REMEMBER_LAST_GAME = False
-DEFAULT_LAST_SELECTED_GAME = AMS_2
+DEFAULT_LAST_SELECTED_GAME = "ams_2"
 SHIFT_LIGHT_THRESHOLD_COUNT = 5
 
 MESSAGE_ERROR = "error"
@@ -80,24 +49,6 @@ MESSAGE_ICONS = {
 }
 MESSAGE_TAG_WHEEL = "wheel"
 MESSAGE_TAG_TELEMETRY = "telemetry"
-
-GAME_KEY_TO_CHOICE = {
-    "ams_2": AMS_2,
-    "assetto_corsa": ASSETTO_CORSA,
-    "assetto_corsa_competizione": ASSETTO_CORSA_COMPETIZIONE,
-    "assetto_corsa_rally": ASSETTO_CORSA_RALLY,
-    "beamng": BEAMNG,
-    "dirt_rally_2_0": DIRT_RALLY_2_0,
-    "truck_simulator": TRUCK_SIMULATOR,
-    "f1_2019": F1_2019,
-    "f1_2020": F1_2020,
-    "f1_2022": F1_2022,
-    "f1_2023": F1_2023,
-    "forza_horizon_5": FORZA_HORIZON_5,
-    "forza_horizon_6": FORZA_HORIZON_6,
-    "live_for_speed": LIVE_FOR_SPEED,
-    "wreckfest_2": WRECKFEST_2,
-}
 
 
 def icon_path(filename):
@@ -212,14 +163,13 @@ APP_CSS = """
 """
 
 
-class Widget(Gtk.Box):
-    __gtype_name__ = 'Widget'
+class GameItem(GObject.Object):
+    """One dropdown entry: plain data, rendered by the window's list factory."""
+    __gtype_name__ = 'GameItem'
 
     def __init__(self, name: str, image_path: str):
         super().__init__()
         self._name = name
-
-        # Create an image widget
         self._image = image_path
 
     # The types matter: the dropdown search expression is only accepted by GTK
@@ -241,22 +191,19 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         super().__init__(*args, **kwargs)
 
         self.thread = None
-        # Replaced per session by _start_telemetry_for_choice; starts set so an
+        # Replaced per session by _start_telemetry; starts set so an
         # unexpected reader never mistakes it for a live session.
         self.stop_event = threading.Event()
         self.stop_event.set()
         self.running = False
         self.shared_rpm_percent = 0
-        self.active_game_choice = None
+        self.active_game = None
         self.auto_detect_enabled = False
         self.remember_last_selected_game = DEFAULT_REMEMBER_LAST_GAME
-        self.last_selected_game_choice = DEFAULT_LAST_SELECTED_GAME
+        self.last_selected_game_key = DEFAULT_LAST_SELECTED_GAME
         self.last_auto_detect_check = 0.0
         self.settings_path = self._get_settings_path()
-        self.assetto_max_rpm = DEFAULT_ASSETTO_MAX_RPM
-        self.assetto_rally_max_rpm = DEFAULT_ASSETTO_RALLY_MAX_RPM
-        self.beamng_max_rpm = DEFAULT_BEAMNG_MAX_RPM
-        self.live_for_speed_max_rpm = DEFAULT_LIVE_FOR_SPEED_MAX_RPM
+        self.max_rpms = {game.key: game.default_max_rpm for game in GAMES if game.needs_max_rpm}
         self.shift_light_thresholds = tuple(BaseWheel.DEFAULT_SHIFT_LIGHT_THRESHOLDS)
         self._updating_shift_light_inputs = False
         self._load_settings()
@@ -303,29 +250,15 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         factory_widget.connect("setup", self._on_factory_widget_setup)
         factory_widget.connect("bind", self._on_factory_widget_bind)
 
-        # Create a dropdown (Gtk.ComboBoxText)
-        self.model_widget = Gio.ListStore(item_type=Widget)
-        self.model_widget.append(Widget(name="AMS 2 / pCars / pCars2", image_path=icon_path("ams-2.png")))
-        self.model_widget.append(Widget(name="Assetto Corsa", image_path=icon_path("assetto.png")))
-        self.model_widget.append(Widget(name="Assetto Corsa Competizione", image_path=icon_path("assetto-corsa-competizione.png")))
-        self.model_widget.append(Widget(name="Assetto Corsa Rally", image_path=icon_path("assetto-corsa-rally.png")))
-        self.model_widget.append(Widget(name="BeamNG", image_path=icon_path("beamng.png")))
-        self.model_widget.append(Widget(name="Dirt Rally 2.0", image_path=icon_path("dirt-rally-2-0.png")))
-        self.model_widget.append(Widget(name="Euro Truck Simulator 2 / American Truck Simulator",
-            image_path=icon_path("euro-truck-simulator-2.png")))
-        self.model_widget.append(Widget(name="F1 2019", image_path=icon_path("f1-2019.png")))
-        self.model_widget.append(Widget(name="F1 2020", image_path=icon_path("f1-2020.png")))
-        self.model_widget.append(Widget(name="F1 2022", image_path=icon_path("f1-2022.png")))
-        self.model_widget.append(Widget(name="F1 2023", image_path=icon_path("f1-2023.png")))
-        self.model_widget.append(Widget(name="Forza Horizon 5", image_path=icon_path("forza-horizon-5.png")))
-        self.model_widget.append(Widget(name="Forza Horizon 6", image_path=icon_path("forza-horizon-6.png")))
-        self.model_widget.append(Widget(name="Live for Speed", image_path=icon_path("live-for-speed.png")))
-        self.model_widget.append(Widget(name="Wreckfest 2", image_path=icon_path("wreckfest-2.png")))
-        self.combo = Gtk.DropDown(model=self.model_widget)
+        # Create a dropdown, one entry per GAMES entry and in the same order
+        self.game_model = Gio.ListStore(item_type=GameItem)
+        for game in GAMES:
+            self.game_model.append(GameItem(name=game.label, image_path=icon_path(game.icon)))
+        self.combo = Gtk.DropDown(model=self.game_model)
         self.combo.set_hexpand(True)
         # Search stays inert unless the dropdown is told how to turn an item
         # into text, so the expression has to be set alongside enable-search.
-        self.combo.set_expression(Gtk.PropertyExpression.new(Widget, None, "name"))
+        self.combo.set_expression(Gtk.PropertyExpression.new(GameItem, None, "name"))
         self.combo.set_enable_search(True)
         if hasattr(self.combo, "set_search_match_mode"):
             # Prefix matching (the default) cannot find "Truck" in entries like
@@ -435,8 +368,8 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
         # Restore the saved selection only once every widget the handler touches
         # exists, otherwise "notify::selected" fires against a half-built window.
-        if self.remember_last_selected_game and self._is_valid_choice(self.last_selected_game_choice):
-            self.combo.set_selected(self.last_selected_game_choice)
+        if self.remember_last_selected_game:
+            self.combo.set_selected(GAME_INDEX_BY_KEY[self.last_selected_game_key])
         self._on_game_selected_changed()
 
         # Detected further down, once the status widgets it reports into exist.
@@ -592,10 +525,11 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         value_box.append(label)
         row.append(value_box)
 
-    def _is_valid_choice(self, choice):
-        if choice == Gtk.INVALID_LIST_POSITION:
-            return False
-        return 0 <= int(choice) < self.model_widget.get_n_items()
+    def _selected_game(self):
+        selected = self.combo.get_selected()
+        if selected == Gtk.INVALID_LIST_POSITION or selected >= len(GAMES):
+            return None
+        return GAMES[selected]
 
     @staticmethod
     def _get_settings_path():
@@ -620,6 +554,17 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             return tuple(BaseWheel.DEFAULT_SHIFT_LIGHT_THRESHOLDS)
         return tuple(parsed)
 
+    @staticmethod
+    def _parse_last_selected_game(raw_value):
+        raw_value = raw_value.strip()
+        if raw_value in GAME_INDEX_BY_KEY:
+            return raw_value
+        # Older versions saved the dropdown position instead. Read it against
+        # the current list, which is what the last of them wrote it for.
+        if raw_value.isdigit() and int(raw_value) < len(GAMES):
+            return GAMES[int(raw_value)].key
+        return DEFAULT_LAST_SELECTED_GAME
+
     def _load_settings(self):
         parser = configparser.ConfigParser()
         if not self.settings_path.exists():
@@ -632,25 +577,13 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             self.remember_last_selected_game = parser.getboolean(
                 "general", "remember_last_game", fallback=DEFAULT_REMEMBER_LAST_GAME
             )
-            self.last_selected_game_choice = parser.getint(
-                "general", "last_selected_game", fallback=DEFAULT_LAST_SELECTED_GAME
+            self.last_selected_game_key = self._parse_last_selected_game(
+                parser.get("general", "last_selected_game", fallback=DEFAULT_LAST_SELECTED_GAME)
             )
-            value_assetto_max_rpm = parser.getint(
-                "assetto_corsa", "max_rpm", fallback=DEFAULT_ASSETTO_MAX_RPM
-            )
-            value_assetto_rally_max_rpm = parser.getint(
-                "assetto_corsa_rally", "max_rpm", fallback=DEFAULT_ASSETTO_RALLY_MAX_RPM
-            )
-            value_beamng_max_rpm = parser.getint(
-                "beamng", "max_rpm", fallback=DEFAULT_BEAMNG_MAX_RPM
-            )
-            value_live_for_speed_max_rpm = parser.getint(
-                "live_for_speed", "max_rpm", fallback=DEFAULT_LIVE_FOR_SPEED_MAX_RPM
-            )
-            self.assetto_max_rpm = max(MIN_MAX_RPM, min(value_assetto_max_rpm, MAX_MAX_RPM))
-            self.assetto_rally_max_rpm = max(MIN_MAX_RPM, min(value_assetto_rally_max_rpm, MAX_MAX_RPM))
-            self.beamng_max_rpm = max(MIN_MAX_RPM, min(value_beamng_max_rpm, MAX_MAX_RPM))
-            self.live_for_speed_max_rpm = max(MIN_MAX_RPM, min(value_live_for_speed_max_rpm, MAX_MAX_RPM))
+            for game in GAMES:
+                if game.needs_max_rpm:
+                    max_rpm = parser.getint(game.key, "max_rpm", fallback=game.default_max_rpm)
+                    self.max_rpms[game.key] = max(MIN_MAX_RPM, min(max_rpm, MAX_MAX_RPM))
             shift_thresholds_raw = parser.get(
                 "shift_lights",
                 "thresholds",
@@ -665,12 +598,10 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         parser["general"] = {
             "auto_detect": str(self.auto_detect_enabled).lower(),
             "remember_last_game": str(self.remember_last_selected_game).lower(),
-            "last_selected_game": str(int(self.last_selected_game_choice)),
+            "last_selected_game": self.last_selected_game_key,
         }
-        parser["assetto_corsa"] = {"max_rpm": str(int(self.assetto_max_rpm))}
-        parser["assetto_corsa_rally"] = {"max_rpm": str(int(self.assetto_rally_max_rpm))}
-        parser["beamng"] = {"max_rpm": str(int(self.beamng_max_rpm))}
-        parser["live_for_speed"] = {"max_rpm": str(int(self.live_for_speed_max_rpm))}
+        for game_key, max_rpm in self.max_rpms.items():
+            parser[game_key] = {"max_rpm": str(int(max_rpm))}
         parser["shift_lights"] = {
             "thresholds": self._serialize_shift_light_thresholds(self.shift_light_thresholds)
         }
@@ -682,15 +613,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             print(f"Failed to write settings: {exc}")
 
     def _read_and_save_max_rpm(self):
-        selected_choice = self.combo.get_selected()
-        if selected_choice == ASSETTO_CORSA:
-            self.assetto_max_rpm = int(self.max_rpm_input.get_value())
-        if selected_choice == ASSETTO_CORSA_RALLY:
-            self.assetto_rally_max_rpm = int(self.max_rpm_input.get_value())
-        elif selected_choice == BEAMNG:
-            self.beamng_max_rpm = int(self.max_rpm_input.get_value())
-        elif selected_choice == LIVE_FOR_SPEED:
-            self.live_for_speed_max_rpm = int(self.max_rpm_input.get_value())
+        game = self._selected_game()
+        if game is not None and game.needs_max_rpm:
+            self.max_rpms[game.key] = int(self.max_rpm_input.get_value())
 
         self._save_settings()
 
@@ -717,11 +642,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self._read_and_save_max_rpm()
 
     def _on_max_rpm_updated(self, _spin):
-        selected_choice = self.combo.get_selected()
-
         if self.running:
             self._stop_telemetry()
-            self._start_telemetry_for_choice(selected_choice)
+            self._start_telemetry(self._selected_game())
 
     def _on_auto_detect_toggled(self, _checkbox):
         self.auto_detect_enabled = self.auto_detect_checkbox.get_active()
@@ -730,8 +653,9 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
     def _on_remember_last_game_toggled(self, _checkbox):
         self.remember_last_selected_game = self.remember_last_game_checkbox.get_active()
-        if self._is_valid_choice(self.combo.get_selected()):
-            self.last_selected_game_choice = int(self.combo.get_selected())
+        game = self._selected_game()
+        if game is not None:
+            self.last_selected_game_key = game.key
         self._save_settings()
 
     def _on_shift_light_threshold_changed(self, _spin, _index):
@@ -791,42 +715,32 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self._detect_wheel(announce_success=True)
 
     def _on_game_selected_changed(self, *_args):
-        selected_choice = self.combo.get_selected()
+        game = self._selected_game()
+        game_key = game.key if game is not None else None
 
-        if selected_choice == ASSETTO_CORSA:
-            self.max_rpm_label.set_text("Assetto Max RPM")
-            self.max_rpm_input.set_value(self.assetto_max_rpm)
-        if selected_choice == ASSETTO_CORSA_RALLY:
-            self.max_rpm_label.set_text("Assetto Rally Max RPM")
-            self.max_rpm_input.set_value(self.assetto_rally_max_rpm)
-        elif selected_choice == BEAMNG:
-            self.max_rpm_label.set_text("BeamNG Max RPM")
-            self.max_rpm_input.set_value(self.beamng_max_rpm)
-        elif selected_choice == LIVE_FOR_SPEED:
-            self.max_rpm_label.set_text("Live for Speed Max RPM")
-            self.max_rpm_input.set_value(self.live_for_speed_max_rpm)
+        showing_max_rpm = game is not None and game.needs_max_rpm
+        if showing_max_rpm:
+            self.max_rpm_label.set_text(game.max_rpm_label)
+            self.max_rpm_input.set_value(self.max_rpms[game.key])
+        self.max_rpm_row.set_visible(showing_max_rpm)
 
-        self.max_rpm_row.set_visible(
-            selected_choice == ASSETTO_CORSA or selected_choice == ASSETTO_CORSA_RALLY or selected_choice == BEAMNG
-            or selected_choice == LIVE_FOR_SPEED)
-
-        showing_ts_plugins = selected_choice == TRUCK_SIMULATOR
+        showing_ts_plugins = game_key == "truck_simulator"
         self.ts_plugin_boxes.set_visible(showing_ts_plugins)
         if showing_ts_plugins:
             self._refresh_ts_plugin_statuses()
-        
-        showing_acc_install = selected_choice == ASSETTO_CORSA_COMPETIZIONE
+
+        showing_acc_install = game_key == "assetto_corsa_competizione"
         self.acc_wrapper_box.set_visible(showing_acc_install)
         if showing_acc_install:
             self._refresh_acc_wrapper_status()
 
-        showing_acr_install = selected_choice == ASSETTO_CORSA_RALLY
+        showing_acr_install = game_key == "assetto_corsa_rally"
         self.acr_wrapper_box.set_visible(showing_acr_install)
         if showing_acr_install:
             self._refresh_acr_wrapper_status()
 
-        if self._is_valid_choice(selected_choice):
-            self.last_selected_game_choice = int(selected_choice)
+        if game is not None:
+            self.last_selected_game_key = game.key
             if self.remember_last_selected_game:
                 self._save_settings()
 
@@ -965,7 +879,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         if self.running and (self.thread is None or not self.thread.is_alive()):
             self.running = False
             self.thread = None
-            self.active_game_choice = None
+            self.active_game = None
             self._update_running_status()
             self.shared_rpm_percent = 0
         self._run_auto_detect_cycle()
@@ -995,7 +909,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         self._update_rpm_preview(0)
         self._clear_message(MESSAGE_TAG_TELEMETRY)
         self.thread = None
-        self.active_game_choice = None
+        self.active_game = None
         self.running = False
 
     def _on_close_request(self, _window):
@@ -1015,53 +929,19 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         )
         WheelRPMWindow._css_loaded = True
 
-    def _create_game_from_choice(self, choice):
-        if choice == FORZA_HORIZON_5:
-            return ForzaHorizon5()
-        if choice == FORZA_HORIZON_6:
-            return ForzaHorizon6()
-        if choice == F1_2019:
-            return F12019()
-        if choice == F1_2020:
-            return F12020()
-        if choice == F1_2022:
-            return F12022()
-        if choice == F1_2023:
-            return F12023()
-        if choice == DIRT_RALLY_2_0:
-            return DirtRally2()
-        if choice == AMS_2:
-            return Automobilista2()
-        if choice == ASSETTO_CORSA:
-            self.assetto_max_rpm = int(self.max_rpm_input.get_value())
-            self._save_settings()
-            return AssettoCorsa(max_rpm=self.assetto_max_rpm)
-        if choice == ASSETTO_CORSA_COMPETIZIONE:
-            return AssettoCorsaSharedMemory()
-        if choice == ASSETTO_CORSA_RALLY:
-            self.assetto_rally_max_rpm = int(self.max_rpm_input.get_value())
-            self._save_settings()
-            return AssettoCorsaSharedMemory(max_rpm=self.assetto_rally_max_rpm)
-        if choice == BEAMNG:
-            self.beamng_max_rpm = int(self.max_rpm_input.get_value())
-            self._save_settings()
-            return OutGauge(max_rpm=self.beamng_max_rpm)
-        if choice == LIVE_FOR_SPEED:
-            self.live_for_speed_max_rpm = int(self.max_rpm_input.get_value())
-            self._save_settings()
-            return OutGauge(max_rpm=self.live_for_speed_max_rpm)
-        if choice == TRUCK_SIMULATOR:
-            return TruckSimulator()
-        if choice == WRECKFEST_2:
-            return Wreckfest2()
-        return None
+    def _create_game(self, game):
+        # max_rpms already holds the input's value: every change is stored as
+        # it is made, and selecting a game loads its own value into the input.
+        if game.needs_max_rpm:
+            return game.create(max_rpm=self.max_rpms[game.key])
+        return game.create()
 
-    def _start_telemetry_for_choice(self, choice):
-        game = self._create_game_from_choice(choice)
+    def _start_telemetry(self, game):
         if game is None:
             print("No game selected.")
             self._show_message("No game selected.", MESSAGE_ERROR, MESSAGE_TAG_TELEMETRY)
             return False
+        telemetry_source = self._create_game(game)
 
         self.running = True
         # A fresh event per session. Reusing one would resurrect a thread that
@@ -1069,10 +949,10 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         stop_event = threading.Event()
         self.stop_event = stop_event
         self.shared_rpm_percent = 0
-        self.active_game_choice = choice
+        self.active_game = game
         self.thread = threading.Thread(
             target=self.game_handling_loop,
-            args=(game, self.wheel, choice, stop_event),
+            args=(telemetry_source, self.wheel, game.uses_shared_memory, stop_event),
             daemon=True,
         )
         self.thread.start()
@@ -1088,42 +968,42 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             return
         self.last_auto_detect_check = now
 
-        detected_game_key = detect_running_game()
-        detected_choice = GAME_KEY_TO_CHOICE.get(detected_game_key)
-        if detected_choice is None:
-            if self.running and self.active_game_choice is not None:
+        detected_index = GAME_INDEX_BY_KEY.get(detect_running_game())
+        if detected_index is None:
+            if self.running and self.active_game is not None:
                 self._stop_telemetry()
                 self._update_running_status()
             return
+        detected_game = GAMES[detected_index]
 
-        if self.combo.get_selected() != detected_choice:
-            self.combo.set_selected(detected_choice)
+        if self.combo.get_selected() != detected_index:
+            self.combo.set_selected(detected_index)
 
         if not self.running:
-            self._start_telemetry_for_choice(detected_choice)
+            self._start_telemetry(detected_game)
             return
 
-        if self.active_game_choice != detected_choice:
+        if self.active_game is not detected_game:
             self._stop_telemetry()
             self._update_running_status()
-            self._start_telemetry_for_choice(detected_choice)
+            self._start_telemetry(detected_game)
 
     def on_button_clicked(self, _button):
         if self.running and (self.thread is None or not self.thread.is_alive()):
             self.running = False
             self.thread = None
-            self.active_game_choice = None
+            self.active_game = None
             self._update_running_status()
             self.shared_rpm_percent = 0
             self._update_rpm_preview(0)
 
         if not self.running:
-            self._start_telemetry_for_choice(self.combo.get_selected())
+            self._start_telemetry(self._selected_game())
         else:
             self._stop_telemetry()
             self._update_running_status()
 
-    def game_handling_loop(self, game, wheel, choice, stop_event):
+    def game_handling_loop(self, game, wheel, uses_shared_memory, stop_event):
         if game is None:
             return
 
@@ -1137,7 +1017,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
             now = time.monotonic()
 
             # Shared memory games
-            if choice == ASSETTO_CORSA_COMPETIZIONE or choice == ASSETTO_CORSA_RALLY:
+            if uses_shared_memory:
                 if shared_memory_opened is False:
                     if now < next_reconnect_time:
                         time.sleep(0.05)
@@ -1196,11 +1076,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
 
             last_packet_time = time.monotonic()
             try:
-                if choice in (FORZA_HORIZON_5, FORZA_HORIZON_6):
-                    max_rpm, current_rpm = game.parse_rpm(data=data)
-                    percent = game.get_rpm_percent(max_rpm=max_rpm, current_rpm=current_rpm)
-                else:
-                    percent = game.get_rpm_percent(data, percent)
+                percent = game.get_rpm_percent(data, percent)
             except Exception as exc:
                 print(f"Telemetry parse failed, ignoring packet/data: {exc}")
                 continue
@@ -1218,7 +1094,7 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
                         wheel = None
                 last_send = now
             # Avoid using too much CPU for no reason
-            if choice == ASSETTO_CORSA_COMPETIZIONE or choice == ASSETTO_CORSA_RALLY:
+            if uses_shared_memory:
                 time.sleep(0.05)
 
         self.shared_rpm_percent = 0
@@ -1299,17 +1175,23 @@ class WheelRPMWindow(Gtk.ApplicationWindow):
         box = list_item.get_child()
         image = box.get_first_child()
         label = image.get_next_sibling()
-        widget = list_item.get_item()
-        image.set_from_file(widget.image)
-        label.set_text(widget.name)
+        item = list_item.get_item()
+        image.set_from_file(item.image)
+        label.set_text(item.name)
 
 
 class RpmWheelApp(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.win = None
         self.connect('activate', self.on_activate)
 
     def on_activate(self, app):
+        # Launching the app again only activates this running instance. A second
+        # window would open the wheel again and fight over the telemetry port.
+        if self.win is not None:
+            self.win.present()
+            return
         self.win = WheelRPMWindow(application=app)
         self.win.connect('destroy', self.quit)
         self.win.present()

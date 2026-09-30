@@ -22,14 +22,11 @@ class ForzaHorizon5:
         data, addr = udp_socket.recvfrom(BUFFER_SIZE)
         return data
     
-    def parse_rpm(self, data) -> tuple:
+    def get_rpm_percent(self, data, prev_value) -> int:
         if len(data) < RPM_PACKET_MIN_SIZE:
-            return 0.0, 0.0
+            return prev_value
         max_rpm = FLOAT32_LE.unpack_from(data, MAX_POS[0])[0]
         current_rpm = FLOAT32_LE.unpack_from(data, CURR_POS[0])[0]
-        return max_rpm, current_rpm
-    
-    def get_rpm_percent(self, max_rpm, current_rpm) -> int:
         if max_rpm == 0 or current_rpm == 0:
             return 0
         return int((current_rpm / max_rpm) * 100)
